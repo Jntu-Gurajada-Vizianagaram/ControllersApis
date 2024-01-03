@@ -40,7 +40,7 @@ app.use(cors())
 );
 
 //apis start
-app.get('/api',(req,res)=>{
+app.get('/',(req,res)=>{
     res.json({
         Message:"Congratulations.. DSAK! Your API WORKING SUCCESSFUllY"
     })
