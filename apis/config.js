@@ -23,5 +23,4 @@ const con=mysql.createConnection({
     port:"3306"
 })
 
-
 module.exports = con;
