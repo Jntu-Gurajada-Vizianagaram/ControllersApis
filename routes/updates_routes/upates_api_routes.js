@@ -8,10 +8,21 @@ const updates= require('../../apis/updates_api/UpdatesApi')
 //------APIS for admin console-------//
 //-------APIS for admin console-------//
 
-router.get('/allevents',updates.all_events);
-router.post('/addevent',updates.Upload,updates.insert_event)
-router.get('/removeevent/:id',updates.delete_event)
+router.get('/every-events',updates.every_events); //api for only admin update events added by any one
+router.get('/all-admin-events',updates.all_admin_events); //api for only admin update events added by admin
+router.get('/all-updater-events',updates.all_updater_events); //api for only admin update events added by updater
+router.post('/add-event',updates.Upload,updates.insert_event)
+router.get('/remove-event/:id',updates.delete_event)
 // router.patch('/update-event',router.update_event)
+
+//---Request APIS---//
+router.get('/update-requests',updates.update_requests); //api for only admin update events added by updater
+router.get('/update-accept-request/:id',updates.update_request_accept); //api for only admin to accept events added by updater
+router.get('/update-deny-request/:id',updates.update_request_deny); //api for only admin to deny events added by updater
+
+
+
+
 
 // ----- Apis for Frontend----------//
 
