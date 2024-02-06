@@ -58,7 +58,7 @@ app.use('/api/results',results)
 // gen.generate_password()
 
 // server listener
-app.listen(888,()=>{
+app.listen(8888,()=>{
     schemas.allSchemas()
     console.log("Server ruinning at port no:8888")
 })
