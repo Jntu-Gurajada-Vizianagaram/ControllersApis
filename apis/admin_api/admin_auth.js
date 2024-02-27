@@ -9,26 +9,27 @@ const cookieparser = require('cookie-parser')
 const app = express()
 
 app.use(express.json());
+app.use(cors())
 
-app.use(cors({
-  origin :["http://localhost:3000"],
-  methods :["GET","POST"],
-  credentials : true,
-}))
+// app.use(cors({
+//   origin :["http://localhost:3000"],
+//   methods :["GET","POST"],
+//   credentials : true,
+// }))
 
-app.use(cookieparser())
-app.use(bodyparser.urlencoded({extended:true}));
+// app.use(cookieparser())
+// app.use(bodyparser.urlencoded({extended:true}));
 
-app.use(session({
-  key : "adminrole",
-  secret : "admins",
-  resave : false,
-  saveUninitialized : false,
-  cookie:{
-    expires: 60*60*24,
-  },
-})
-);
+// app.use(session({
+//   key : "adminrole",
+//   secret : "admins",
+//   resave : false,
+//   saveUninitialized : false,
+//   cookie:{
+//     expires: 60*60*24,
+//   },
+// })
+// );
 
 
 exports.alladmins = (req, res) => {
@@ -51,7 +52,7 @@ exports.login=(req,res) => {
   try {
     // console.log("loginapi")
     const { credentials } = req.body;
-    const sql ="SELECT role , password FROM admins where username=(?);"
+    const sql ="SELECT role , password , name FROM admins where username=(?);"
     con.query(sql,credentials.username,(err,result)=>{
       if(err){
         console.log(err)
@@ -62,16 +63,18 @@ exports.login=(req,res) => {
             console.log({result})
             // console.log(req.session.user)
             const role = result[0].role
+            const admin_name = result[0].name
             console.log(role)
+            console.log(admin_name)
             req.session.userid = role;
-            res.send({login:true,message:role})
+            res.send({islogin:true,role:role,admin:admin_name})
           }
           else{
-            res.send({login:false,message:"Incorrect Password"})
+            res.send({islogin:false,message:"Incorrect Password"})
           }
         }
         else{
-          res.send({login:false,message:"Admin Dosn't Exist"})
+          res.send({islogin:false,message:"Admin Dosn't Exist"})
         }
       }
     })

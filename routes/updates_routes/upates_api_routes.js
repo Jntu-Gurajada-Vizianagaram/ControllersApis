@@ -10,7 +10,7 @@ const updates= require('../../apis/updates_api/UpdatesApi')
 
 router.get('/every-events',updates.every_events); //api for only admin update events added by any one
 router.get('/all-admin-events',updates.all_admin_events); //api for only admin update events added by admin
-router.get('/all-updater-events',updates.all_updater_events); //api for only admin update events added by updater
+router.get('/all-updater-events/:adminid',updates.all_updater_events); //api for only admin update events added by updater
 router.post('/add-event',updates.Upload,updates.insert_event)
 router.get('/remove-event/:id',updates.delete_event)
 // router.patch('/update-event',router.update_event)

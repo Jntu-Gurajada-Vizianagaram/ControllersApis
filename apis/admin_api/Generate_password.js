@@ -1,21 +1,37 @@
+const ApiKeyAuthentication = require('../ApiKeyAuth')
+const url = require('url');
+const dns = require('dns');
 
 exports.generate_password=(req,res)=>{
     try{
-    const chars = [
-        "A","a","B","b","C","c","D","d","1","2","3","4","5","6","7","8","9","0","!","@","#","$","&",
-        "E","e","F","f","G","g","H","h","I","i","J","j","K","k","L","l","M",
-        "m","N","n","O","o","P","p","Q","q","R","r","S","s","T","t","U","u","V","v","W","w","X","x","Y","y","Z","z"
-        ]
-        var password = "";
-        var i =0;
-        for(i;i<=7;i++){
-            password= password+chars[Math.floor(Math.random()*62)]
+        const apikey = req.url
+
+        if(ApiKeyAuthentication.checkip("/")){
+            let password = ""
+            const string = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPLKJHGFDSAZXCVBNM1234567098"
+            var i =0;
+            for(i;i<=7;i++){
+                password = password+string.charAt(Math.floor(Math.random()*62))
+            }
+        res.json({verification:"API Key Validated",pwd:password})
+        console.log(password)
         }
-        res.json({pwd:password})
-        // console.log(password)
-    }
-    catch(error){
-        console.log(error) 
-    }
+        else{
+            
+            console.log("Inavlid Key generate password")
+            res.json({verification:"Inavlid API Key "})
+            
+        }
         
+    } 
+    catch(error){
+        console.log(error)
+        res.status(400).json({verification :error})
+
+    }
 }
+
+
+
+
+

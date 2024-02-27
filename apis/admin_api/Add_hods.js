@@ -4,7 +4,7 @@ const con =require('../config')
 // const app = express()
 // app.use(cors())
 // app.use(express.json())
-
+require('dotenv').config()
 exports.addhods = (req,res)=>{
     const {data} = req.body;
     console.log(data)
