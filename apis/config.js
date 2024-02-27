@@ -17,8 +17,8 @@ const mysql = require("mysql2");
 // });
 const con=mysql.createConnection({
     host:"localhost",
-    user:"dbamdin",
-    password:"Jntugv@dmc23",
+    user:"root",
+    password:"1437890",
     database:"jntugv",
     port:"3306"
 })
