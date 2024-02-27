@@ -39,15 +39,15 @@ exports.delete_event=(req, res) => {
   const id = req.params.id;
   const sql = `DELETE FROM notification_updates WHERE id = ${id}`;
   
-  // connection.query(sql, (err, result) => {
-  //   if (err) {
-  //     console.error('Error deleting data:', err);
-  //     res.status(500).json({ error: 'Error deleting data' });
-  //     return;
-  //   }
-  //   console.log('Data deleted successfully');
-  //   res.json({ message: 'Data deleted successfully' });
-  // });
+  connection.query(sql, (err, result) => {
+    if (err) {
+      console.error('Error deleting data:', err);
+      res.status(500).json({ error: 'Error deleting data' });
+      return;
+    }
+    console.log('Data deleted successfully');
+    res.json({ message: 'Data deleted successfully' });
+  });
 };
 
 exports.update_event= (req, res) => {
