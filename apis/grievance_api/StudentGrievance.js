@@ -54,13 +54,14 @@ if(rollno == null || email ==null || name ==null || phno ==null || adhaarno ==nu
         "msg":"",
         "date":""
     }
-    res.json({Error:"All These Fields Required",required})
+    console.log(req.body.rollno)
+    res.json({success:"All These Fields Required",required})
     
 }else{
         const mailoptions= {
-            from:`Student Grievance<studentgrievances@jntugv.edu.in>`,
+            from:`Admin Grievance<studentgrievances@jntugv.edu.in>`,
             to:`${email}`,
-            subject:'Student Grievance',
+            subject:'Admin Grievance',
             text:` `,
             html:`${body}`,
             // attachments:[attach]
