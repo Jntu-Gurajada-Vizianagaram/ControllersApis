@@ -36,6 +36,7 @@ app.use(express.json());
 const adminauth= require('../../apis/admin_api/admin_auth')
 const hods= require('../../apis/admin_api/Add_hods')
 const pwd = require('../../apis/admin_api/Generate_password')
+const allfiles = require('../../apis/admin_api/AllFiles')
 
 router.get('/getadmins',adminauth.alladmins)
 router.post('/login',adminauth.login)
@@ -43,5 +44,6 @@ router.get('/getrole',adminauth.role_session)
 router.post('/add-hod',hods.addhods)
 router.get('/remove-hod/:id',hods.remove_hod)
 router.get('/generate-password/',pwd.generate_password)
+router.get('/allstoredfiles',allfiles.Allstoredfiles)
 
 module.exports=router

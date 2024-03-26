@@ -1,8 +1,10 @@
 const multer = require('multer');
+const fs = require('fs')
 const connection = require('../config')
 require('dotenv').config()
-const api_ip = "https://api.jntugv.edu.in"
-console.log(api_ip)
+// const api_ip = process.env.domainip
+const api_ip = 'https://api.jntugv.edu.in'
+
 const storage = multer.diskStorage({
   destination: (req, file, cb )=>{
     return cb(null,'./storage/notifications/')
@@ -36,18 +38,50 @@ exports.insert_event =  (req, res) => {
 };
 
 exports.delete_event=(req, res) => {
+  // const filepath = './storage/notifications/'
   const id = req.params.id;
-  const sql = `DELETE FROM notification_updates WHERE id = ${id}`;
+  const sel = `SELECT * FROM notification_updates WHERE id = ${id}`;
+  const del = `DELETE FROM notification_updates WHERE id = ${id}`;
   
-  connection.query(sql, (err, result) => {
+  connection.query(sel, (err, result) => {
     if (err) {
       console.error('Error deleting data:', err);
       res.status(500).json({ error: 'Error deleting data' });
       return;
     }
+    
+    const filepath = `./storage/notifications/${result[0].file_path}`
+    
+    connection.query(del, (err,result)=>{
+      if(err){
+        console.log(err);
+        res.status(500).json({ error: 'No Records Found!' });
+        return;
+      }else{
+        fs.access(filepath, fs.constants.F_OK, (err) => {
+          if(err) {
+            res.json(err)
+            console.error('File does not exist');
+            return;
+          }
+          
+          // If the file exists, remove it
+          fs.unlink(filepath, (err) => {
+            if (err) {
+              console.error('Error removing file:', err);
+              return;
+            }
+            console.log('File removed successfully');
+          });
+        });
+      }
+    });
+
     console.log('Data deleted successfully');
-    res.json({ message: 'Data deleted successfully' });
+    res.json({ message: 'Data deleted successfully'});
   });
+  
+  
 };
 
 exports.update_event= (req, res) => {
@@ -127,7 +161,7 @@ exports.every_events=(req, res) => {
       const filelink =`${api_ip}/media/${eve.file_path}`
       const outdate=new Date(eve.date)
 
-      return{
+      return {
         ...eve,
         file_link:filelink,
         day:outdate.getDate(),

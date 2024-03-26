@@ -10,7 +10,7 @@ const storage = multer.diskStorage({
   }
 })
 
-exports.Upload = multer({storage}).single('file')
+exports.dmcUpload = multer({storage}).single('file')
 
 exports.insert_img =  (req, res) => {
 
