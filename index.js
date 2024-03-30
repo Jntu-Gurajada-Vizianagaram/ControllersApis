@@ -48,7 +48,7 @@ app.use("/exam-files", express.static('./'));
 app.use("/api/admins", admins);
 app.use("/api/mailing", mailing);
 app.use("/api/updates", updates);
-app.use("/api/dmcupload", dmcupload);
+app.use("/api/webadmin", dmcupload);
 app.use("/api/affliated-colleges", affliatedColleges);
 app.use("/api/results", results);
 // app.use('/api/addhod',)
