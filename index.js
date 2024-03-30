@@ -44,6 +44,7 @@ app.use(
 //apis start
 app.use("/media", express.static("./storage/notifications"));
 app.use("/dmc", express.static("./storage/dmc"));
+app.use("/exam-files", express.static('./'));
 app.use("/api/admins", admins);
 app.use("/api/mailing", mailing);
 app.use("/api/updates", updates);
