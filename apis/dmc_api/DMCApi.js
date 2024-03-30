@@ -1,6 +1,6 @@
 const multer = require('multer');
 const connection = require('../config')
-const api_ip = process.env.domainip
+const api_ip = 'https://api.jntugv.edu.in'
 
 const storage = multer.diskStorage({
   destination: (req, file, cb )=>{
