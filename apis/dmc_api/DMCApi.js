@@ -1,5 +1,6 @@
 const multer = require('multer');
 const connection = require('../config')
+const api_ip = process.env.domainip
 
 const storage = multer.diskStorage({
   destination: (req, file, cb )=>{
@@ -15,8 +16,8 @@ exports.dmcUpload = multer({storage}).single('file')
 exports.insert_img =  (req, res) => {
 
   const  dmcupload  = req.body;
-  const  file  = req.file;
-  console.log(upload )
+  const  file  = req.file
+  console.log(dmcupload)
   console.log("File"+file.originalname)
   const int = 0;
   const sql = 'INSERT INTO dmc_upload (id, date, title,  file_path, description, submitted, admin_approval, carousel_scrolling, gallery_scrolling) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
@@ -57,8 +58,18 @@ exports.all_imgs=(req, res) => {
       res.status(500).json({ error: `Error retrieving data${err} `});
       return;
     }
-    console.log('Data retrieved successfully');
-    res.json(results);
+
+    const img_list = results.map(img=>{
+      const img_link = `${api_ip}/dmc/${img.file_path}`
+
+      return {
+        ...img,
+      imglink:img_link
+      }
+    })
+    console.log('DMC Data retrieved successfully');
+
+    res.json(img_list);
   });
 };
 
