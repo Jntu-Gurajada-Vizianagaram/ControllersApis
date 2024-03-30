@@ -37,6 +37,8 @@ const adminauth= require('../../apis/admin_api/admin_auth')
 const hods= require('../../apis/admin_api/Add_hods')
 const pwd = require('../../apis/admin_api/Generate_password')
 const allfiles = require('../../apis/admin_api/AllFiles')
+const exampdfs = require('../../apis/for_wednesday_exam/ExamPDFs')
+
 
 router.get('/getadmins',adminauth.alladmins)
 router.post('/login',adminauth.login)
@@ -45,5 +47,6 @@ router.post('/add-hod',hods.addhods)
 router.get('/remove-hod/:id',hods.remove_hod)
 router.get('/generate-password/',pwd.generate_password)
 router.get('/allstoredfiles',allfiles.Allstoredfiles)
+router.get('/allexampdfs',exampdfs.exam_pdfs)
 
 module.exports=router
