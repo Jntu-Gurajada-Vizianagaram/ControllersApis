@@ -12,18 +12,22 @@ const affliatedColleges = require("./routes/affliated_colleges_routes/AffliatedC
 const results = require("./routes/results_routes/ResultsRoutes");
 
 //middle ware import
+// const corsOptions = {
+  //   origin:'https://jntugv.edu.in',
+  //   optionSuccessStatus:200,
+  // }
+  // app.use(cors("corsOptions"));
+app.use(cors());
 app.use(express.json());
 
 const session = require("express-session");
 const bodyparser = require("body-parser");
 const cookieparser = require("cookie-parser");
 const con = require("./apis/config");
-app.use(express.json());
-app.use(cors());
 // app.use(cors({
 //   origin :["http://localhost:3001"],
 //   methods :["GET","POST"],
-//   credentials : true,
+//   credentials : true,  
 // }))
 
 app.use(cookieparser());
