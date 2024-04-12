@@ -3,6 +3,7 @@ const fs = require('fs')
 const connection = require('../config')
 require('dotenv').config()
 // const api_ip = process.env.domainip
+// const api_ip = 'http://localhost:8888'
 const api_ip = 'https://api.jntugv.edu.in'
 
 const storage = multer.diskStorage({
@@ -170,7 +171,7 @@ exports.every_events=(req, res) => {
       }
     })
 
-    console.log('Data retrieved successfully');
+    // console.log('Data retrieved successfully');
     // res.json({path:`api.jntugv.edu.in`})
     // results.push('api.jntugv.edu.in/files/')
     res.json(final_events);
@@ -199,7 +200,7 @@ exports.all_admin_events=(req, res) => {
       }
     })
 
-    console.log('Data retrieved successfully');
+    // console.log('Data retrieved successfully');
     // res.json({path:`api.jntugv.edu.in`})
     // results.push('api.jntugv.edu.in/media/')
     res.json(final_events);
@@ -229,7 +230,7 @@ exports.all_updater_events=(req, res) => {
       }
     })
 
-    console.log('Data retrieved successfully');
+    // console.log('Data retrieved successfully');
     // res.json({path:`api.jntugv.edu.in`})
     // results.push('api.jntugv.edu.in/media/')
     res.json(final_events);
@@ -258,7 +259,7 @@ exports.update_requests=(req, res) => {
       }
     })
 
-    console.log('Data retrieved successfully');
+    // console.log('Data retrieved successfully');
     // res.json({path:`api.jntugv.edu.in`})
     // results.push('api.jntugv.edu.in/files/')
     res.json(final_events);
@@ -289,7 +290,7 @@ exports.get_notifiactions=(req, res) => {
         year: outdate.getFullYear(),
       }
     })
-    console.log('Data retrieved successfully');
+    // console.log('Data retrieved successfully');
     // res.json({path:`api.jntugv.edu.in`})
     // results.push('api.jntugv.edu.in/files/')
     res.json(final_events);
@@ -306,7 +307,7 @@ exports.get_scrolling_notifiactions=(req, res) => {
       res.status(500).json({ error: `Error retrieving data${err} `});
       return;
     }
-    console.log('Scrolling Notifications Data retrieved successfully');
+    // console.log('Scrolling Notifications Data retrieved successfully');
     res.json(results);
   });
 };

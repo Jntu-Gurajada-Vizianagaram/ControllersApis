@@ -1,19 +1,31 @@
 const express = require('express')
 const router = express.Router();
-const updates= require('../../apis/dmc_api/DMCApi')
+const webadmin= require('../../apis/dmc_api/DMCApi')
 
 
 
 
 //------APIS for admin console-------//
 
-router.get('/allimgs',updates.all_imgs); 
-router.post('/addimg',updates.dmcUpload,updates.insert_img)
-router.get('/removeimg/:id',updates.delete_img);
+router.get('/allimages',webadmin.all_imgs); 
+router.post('/addimage',webadmin.dmcUpload,webadmin.insert_img)
+router.get('/removeimg/:id',webadmin.delete_img);
+router.get('/carousel-images',webadmin.carousel_imgs);
 // router.patch('/update-event',router.update_event)
 
-// ----- Apis for Frontend----------//
+//------API for BULK Images ----//
+router.post('/add-event-photos',webadmin.add_event_photos)
+router.get('/get-event-photos',webadmin.get_events_photos)
 
+
+//---Request APIS---//
+router.get('/webadmin-requests',webadmin.webadmin_requests); //api for only admin webadmin events added by webadminr
+router.get('/webadmin-accept-request/:id',webadmin.webadmin_request_accept); //api for only admin to accept events added by webadminr
+router.get('/webadmin-deny-request/:id',webadmin.webadmin_request_deny); //api for only admin to deny events added by webadminr
+
+
+// ----- Apis for Frontend----------//
+router.get('/main-carousel-images',webadmin.carousel_imgs);
 
 
 
