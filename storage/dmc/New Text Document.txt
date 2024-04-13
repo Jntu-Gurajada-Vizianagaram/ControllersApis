@@ -1,1 +1,315 @@
 Hello this page return all the webadmin files and photos
+
+const multer = require('multer');
+const connection = require('../config')
+const api_ip = 'http://localhost:8888'
+// const api_ip = 'https://api.jntugv.edu.in'
+const fs_existsSync = require('fs').existsSync
+const fs_mkdirSync = require('fs').mkdirSync
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb )=>{
+    return cb(null,'./storage/dmc/')
+  },
+  filename: (req, file, cb)=>{
+    return cb(null,`${file.originalname}`)
+  }
+})
+
+exports.dmcUpload = multer({storage}).single('file')
+
+exports.insert_img =  (req, res) => {
+
+  const  dmcupload  = req.body;
+  const  file  = req.file
+  console.log(dmcupload)
+  console.log("File"+file.originalname)
+  const int = 0;
+  const sql = 'INSERT INTO dmc_upload (id, date, title,  file_path, description, submitted, admin_approval, carousel_scrolling, gallery_scrolling) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  const values = [int, dmcupload.date, dmcupload.title,  file.originalname , dmcupload.description, dmcupload.submitted, dmcupload.admin_approval, dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
+
+  connection.query(sql, values, (err, result) => {
+    if (err) {
+      console.error('Error inserting data:', err);
+      res.status(500).json({ error: 'Error inserting data' });
+      return;
+    }
+    // console.log('Data inserted successfully');
+    res.json({ message: 'Data inserted successfully' });
+  });
+};
+ 
+exports.delete_img=(req, res) => {
+const id = req.params.id;
+const sql = `DELETE FROM dmc_upload WHERE id = ${id}`;
+
+connection.query(sql, (err, result) => {
+  if (err) {
+    console.error('Error deleting data:', err);
+    res.status(500).json({ error: 'Error deleting data' });
+    return;
+  }
+  // console.log('Data deleted successfully');
+  res.json({ message: 'Data deleted successfully' });
+});
+};
+
+exports.all_imgs=(req, res) => {
+  const sql = "SELECT * FROM dmc_upload ORDER BY id DESC";
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error retrieving data:', err);
+      res.status(500).json({ error: `Error retrieving data${err} `});
+      return;
+    }
+
+    const img_list = results.map(img=>{
+      const img_link = `${api_ip}/dmc/${img.file_path}`
+
+      return {
+        ...img,
+      imglink:img_link
+      }
+    })
+    // console.log('DMC Data retrieved successfully');
+
+    res.json(img_list);
+  });
+};
+
+//carousel api 
+exports.carousel_imgs=(req, res) => {
+  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='accepted' AND carousel_scrolling='yes'";
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error retrieving data:', err);
+      res.status(500).json({ error: `Error retrieving data${err} `});
+      return;
+    }
+
+    const img_list = results.map(img=>{
+      const img_link = `${api_ip}/dmc/${img.file_path}`
+
+      return {
+        ...img,
+      imglink:img_link
+      }
+    })
+    // console.log('DMC carousel Images Data retrieved successfully');
+    res.json(img_list);
+
+  });
+};
+
+
+
+exports.update_gallery= (req, res) => {
+  const uploadId = req.params.id;
+  const { dmcupload } = req.body;
+
+  const sql = 'UPDATE dmc_upload SET date=?, title=?,  fil_path=?, description=?, submitted=?, admin_approval=?, carousel_scrolling=?, gallery_scrolling=?  WHERE id=?';
+  const values = [dmcupload.date, dmcupload.title,  dmcupload.filepath, dmcupload.description, dmcupload.submitted, dmcupload.admin_approval, dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
+
+  connection.query(sql, values, (err, result) => {
+    if (err) {
+      console.error('Error updating data:', err);
+      res.status(500).json({ error: 'Error updating data' });
+      return;
+    }
+    // console.log('Data updated successfully');
+    res.json({ message: 'Data updated successfully' });
+  });
+};
+
+
+
+//----------REQUEST HANDLING APIS --------------//
+
+
+exports.webadmin_requests=(req, res) => {
+  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='pending' AND carousel_scrolling='yes' ORDER BY id DESC";
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error retrieving data:', err);
+      res.status(500).json({ error: `Error retrieving data${err} `});
+      return;
+    }
+    const final_events = results.map(eve=>{
+      const filelink =`${api_ip}/media/${eve.file_path}`
+      const outdate=new Date(eve.date)
+
+      return{
+        ...eve,
+        file_link:filelink,
+        day:outdate.getDate(),
+        month: outdate.toLocaleString('en-US', { month: 'short' }),
+        year: outdate.getFullYear(),
+      }
+    })
+
+    // console.log('Data retrieved successfully');
+    // res.json({path:`api.jntugv.edu.in`})
+    // results.push('api.jntugv.edu.in/files/')
+    res.json(final_events);
+  });
+};
+
+
+
+
+
+
+exports.webadmin_request_accept = (req, res) =>{
+  const imgid = req.params.id;
+  console.log(imgid)
+  const sql = `select * from dmc_upload WHERE id =${imgid}`
+  connection.query(sql ,(err,result)=>{
+    if(err){
+      console.log(err)
+      res.status(500).json({error:`error in accepting update ${err}`});
+    }
+    if(result.length > 0){
+      console.log(result)
+      connection.query(`UPDATE dmc_upload set admin_approval='accepted' WHERE id=${imgid}`,(uperr,upres)=>{
+        if(uperr){
+          res.status(500).json({error:`error in accepting update ${err}`})
+        }
+        res.json({message:"Image Request Accepted Sueccfully"})
+      })
+
+    }
+    else{
+      console.log("edho eroor")
+    }
+  })
+}
+exports.webadmin_request_deny = (req, res) =>{
+  const imgid = req.params.id;
+  const sql = `select * from dmc_upload WHERE id =${imgid}`
+  connection.query(sql ,(err,result)=>{
+    if(err){
+      res.status(500).json({error:`error in accepting update ${err}`})
+    }
+    else if(result.length > 0){
+      connection.query(`UPDATE dmc_upload set admin_approval='denied' WHERE id=${imgid}`,(uperr,upres)=>{
+        if(uperr){
+          res.status(500).json({error:`error in accepting update ${err}`})
+        }
+        res.json({message:"Image request denied Sueccfully"})
+      })
+
+    }
+  })
+} 
+
+
+
+
+
+
+
+
+
+//Bulk Photos of any Event
+
+// const Create_dir=(event_name)=>{
+//   if(fs_existsSync(event_name)){
+//     console.log("Storage folder is there")
+//     return true
+//   }
+//   else{
+    
+//   }
+// }
+
+
+
+const bulkstorage = multer.diskStorage({
+  destination: (req, file, cb )=>{
+    const event_name = req.body.event_name;
+    console.log(event_name)
+    return cb(null,`./storage/dmc/events/${event_name}`)
+  },
+  filename: (req, file, cb)=>{
+    return cb(null,`${file.originalname}`)
+  }
+})
+exports.bulkupload = multer({storage:bulkstorage}).array('files',10);
+
+const Create_dir = (event_name) =>{
+
+  if(!fs_existsSync(`./storage/`)){
+    fs_mkdirSync('./storage')
+    return("Storage/ folder is Created")
+  }
+  else{
+
+    if(!fs_existsSync(`./storage/dmc/`)){
+      fs_mkdirSync(`./storage/dmc`)
+      return("Storage/dmc folder is Created")
+    }
+    else{
+
+      if(!fs_existsSync(`./storage/dmc/events`)){
+        fs_mkdirSync(`./storage/dmc/events`)
+        return("Storage/dmc/events folder is Created")
+      }
+      else{
+        if(!fs_existsSync(`./storage/dmc/events/${event_name}`)){
+          if(fs_mkdirSync(`./storage/dmc/events/${event_name}`)){
+            return("Error in Creating in Folder Cretaion")
+          }
+          else{
+              return(`${event_name} folder is CReated Successfully, continue to upload images`)
+            }
+        }
+        else{
+          return(`${event_name} folder is there, continue to upload images`)
+          
+        }
+        
+        return(`Storage/dmc/events folder is There`)
+      }
+      
+      return("Storage/dmc folder is there")
+    }
+    
+    return("Storage/ folder is there")
+  }
+}
+
+exports.bulk_photo_folder=(req,res)=>{
+  console.log(req.body)
+  console.log(req.files)
+  res.json(Create_dir(req.body.event_name))
+  
+}
+
+
+exports.add_event_photos = (req,res) =>{
+  console.log( "Bulk Image Center")
+  console.log(req.files)
+  res.json('Files uploaded Successfully')
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exports.get_events_photos = (req,res) =>{
+  res.status(200).json({message:"All Events Photos and their Links"})
+}
