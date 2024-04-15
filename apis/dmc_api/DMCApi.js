@@ -82,7 +82,7 @@ exports.all_imgs=(req, res) => {
 
 //carousel api 
 exports.carousel_imgs=(req, res) => {
-  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='accepted' AND carousel_scrolling='yes'";
+  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='accepted' AND carousel_scrolling='yes' ORDER BY id DESC";
 
   connection.query(sql, (err, results) => {
     if (err) {
