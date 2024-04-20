@@ -43,17 +43,47 @@ exports.insert_img =  (req, res) => {
  
 exports.delete_img=(req, res) => {
 const id = req.params.id;
-const sql = `DELETE FROM dmc_upload WHERE id = ${id}`;
+const sel = `SELECT * FROM dmc_upload WHERE id = ${id}`;
+const del = `DELETE FROM dmc_upload WHERE id = ${id}`;
+  
+  connection.query(sel, (err, result) => {
+    if (err) {
+      console.error('Error deleting data:', err);
+      res.status(500).json({ error: 'Error deleting data' });
+      return;
+    }
+    
+    const filepath = `./storage/dmc/${result[0].file_path}`
+    
+    connection.query(del, (err,result)=>{
+      if(err){
+        console.log(err);
+        res.status(500).json({ error: 'No Records Found!' });
+        return;
+      }else{
+        fs.access(filepath, fs.constants.F_OK, (err) => {
+          if(err) {
+            res.json(err)
+            console.error('File does not exist');
+            return;
+          }
+          
+          // If the file exists, remove it
+          fs.unlink(filepath, (err) => {
+            if (err) {
+              console.error('Error removing file:', err);
+              return;
+            }
+            console.log('File removed successfully');
+          });
+        });
+      }
+    });
 
-connection.query(sql, (err, result) => {
-  if (err) {
-    console.error('Error deleting data:', err);
-    res.status(500).json({ error: 'Error deleting data' });
-    return;
-  }
-  // console.log('Data deleted successfully');
-  res.json({ message: 'Data deleted successfully' });
-});
+    console.log('Data deleted successfully');
+    res.json({ message: 'Data deleted successfully',result});
+  });
+  
 };
 
 exports.all_imgs=(req, res) => {
@@ -105,6 +135,71 @@ exports.carousel_imgs=(req, res) => {
   });
 };
 
+exports.carousel_imgs_preview=(req, res) => {
+  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='pending' AND carousel_scrolling='yes' ORDER BY id AND admin_approval DESC";
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error retrieving data:', err);
+      res.status(500).json({ error: `Error retrieving data${err} `});
+      return;
+    }
+
+    const img_list = results.map(img=>{
+      const img_link = `${api_ip}/dmc/${img.file_path}`
+
+      return {
+        ...img,
+      imglink:img_link
+      }
+    })
+    // console.log('DMC carousel Images Data retrieved successfully');
+    res.json(img_list);
+
+  });
+};
+
+exports.remove_from_carousel = (req,res)=>{
+  const img_id = req.params.imgid
+  const query1 = `SELECT * FROM dmc_upload WHERE id=${img_id} AND carousel_scrolling='yes'`
+  const query2 = `UPDATE dmc_upload SET carousel_scrolling='no', admin_approval = 'pending' WHERE id=${img_id}`
+  con.query(query1,(err,result1)=>{
+    if(err){
+      console.log(err)
+    }
+    else{
+      con.query(query2,(err,result2)=>{
+        if (err){
+          console.log(err)
+        }
+        else{
+          res.json({message:`${img_id}`,result:result2})
+        }
+      })
+    }
+  })
+}
+
+exports.add_to_carousel = (req,res)=>{
+  const img_id = req.params.imgid
+  const query1 = `SELECT * FROM dmc_upload WHERE id=${img_id} AND carousel_scrolling='no'`
+  const query2 = `UPDATE dmc_upload SET carousel_scrolling='yes', admin_approval = 'pending' WHERE id=${img_id}`
+  con.query(query1,(err,result1)=>{
+    if(err){
+      console.log(err)
+    }
+    else{
+      con.query(query2,(err,result2)=>{
+        if (err){
+          console.log(err)
+        }
+        else{
+          res.json({message:`${img_id}`,result:result2})
+        }
+      })
+    }
+  })
+}
 
 
 exports.update_gallery= (req, res) => {
@@ -140,7 +235,7 @@ exports.webadmin_requests=(req, res) => {
       return;
     }
     const final_events = results.map(eve=>{
-      const filelink =`${api_ip}/media/${eve.file_path}`
+      const filelink =`${api_ip}/dmc/${eve.file_path}`
       const outdate=new Date(eve.date)
 
       return{
