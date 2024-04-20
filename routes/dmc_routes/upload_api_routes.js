@@ -11,6 +11,7 @@ router.get('/allimages',webadmin.all_imgs);
 router.post('/addimage',webadmin.dmcUpload,webadmin.insert_img)
 router.get('/removeimage/:id',webadmin.delete_img);
 router.get('/carousel-images-preview',webadmin.carousel_imgs_preview);
+router.get('/carousel-images',webadmin.carousel_imgs_preview);
 router.get('/remove-from-carousel/:imgid',webadmin.remove_from_carousel);
 router.get('/add-to-carousel/:imgid',webadmin.add_to_carousel);
 // router.patch('/update-event',router.update_event)
