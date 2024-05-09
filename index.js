@@ -28,7 +28,7 @@ const con = require("./apis/config");
 
 const alloweddomains = [
   "https://jntugv.edu.in",
-  "https://admin.jntugv.edu.in",
+  "https://admi.jntugv.edu.in",
   "http://localhost:3000",
   "http://localhost:3001"
 ]
