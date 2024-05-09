@@ -13,22 +13,31 @@ const results = require("./routes/results_routes/ResultsRoutes");
 
 //middle ware import
 // const corsOptions = {
-  //   origin:'https://jntugv.edu.in',
-  //   optionSuccessStatus:200,
-  // }
-  // app.use(cors("corsOptions"));
-app.use(cors());
+//   origin:'https://jntugv.edu.in',
+//   optionSuccessStatus:200,
+// }
+// app.use(cors("corsOptions"));
+// app.use(cors());
 app.use(express.json());
 
 const session = require("express-session");
 const bodyparser = require("body-parser");
 const cookieparser = require("cookie-parser");
 const con = require("./apis/config");
-// app.use(cors({
-//   origin :["http://localhost:3001"],
-//   methods :["GET","POST"],
-//   credentials : true,  
-// }))
+
+
+const alloweddomains = [
+  "https://jntugv.edu.in",
+  "https://admin.jntugv.edu.in",
+  "http://localhost:3000",
+  "http://localhost:3001"
+]
+
+app.use(cors({
+  origin :alloweddomains,
+  methods :["GET","POST"],
+  credentials : true,  
+}))
 
 app.use(cookieparser());
 app.use(bodyparser.urlencoded({ extended: true }));
@@ -64,7 +73,9 @@ app.use("/api/results", results);
 // gen.generate_password()
 
 
-
+app.get('/',(req,res)=>{
+  res.json('Hey JNTUGV Devops API Working Successfully')
+})
 // server listener
 const port = 8888;
 app.listen(port, () => {
