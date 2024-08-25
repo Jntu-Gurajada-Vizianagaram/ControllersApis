@@ -33,8 +33,11 @@ router.get('/webadmin-deny-request/:id',webadmin.webadmin_request_deny); //api f
 
 // ----- Apis for Frontend----------//
 router.get('/main-carousel-images',webadmin.carousel_imgs);
-router.get('/get-main-event-photos',webadmin.get_main_events_photos)
+router.get('/get-main-event-photos',webadmin.get_main_events_photos);
 
+//---- API s for Gallery --------//
+router.post('/webadmin/add-gallery-images');
+router.get('webadmin/all-gallery-images');
 
 
 module.exports=router

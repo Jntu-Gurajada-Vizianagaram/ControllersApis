@@ -4,6 +4,7 @@ const notification_updates_schema = require('./UpdatesSchema')
 const dmc_upload_schema = require('./DMCUploadSchema')
 const event_photos_table = require('./EventPhotosSchema')
 const carousel_photos_table=  require('./CarouselSchema')
+const gallery_requests_table =require('./galleryRequestsSchema')
 
 exports.allSchemas = ()=>{
     
@@ -13,5 +14,6 @@ exports.allSchemas = ()=>{
     dmc_upload_schema.dmc_upload_table()
     event_photos_table.event_photos_table()
     carousel_photos_table.carousel_photos_table()
+    gallery_requests_table.gallery_requests()
 
 }
