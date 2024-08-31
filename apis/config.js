@@ -15,12 +15,19 @@ const mysql = require("mysql2");
 //   database: "jntugv",
 //   port: "3306",
 // });
+// const con=mysql.createConnection({
+//     host:"localhost",
+//     user:"dbadmin",
+//     password:"Jntugv@dmc23",
+//     database:"jntugv",
+//     port:"3306"
+// })
+
 const con=mysql.createConnection({
     host:"localhost",
-    user:"dbadmin",
-    password:"Jntugv@dmc23",
+    user:"root",
+    password:"Anil@73",
     database:"jntugv",
-    port:"3306"
+    port:"3306"  ,  //use your database port here
 })
-
 module.exports = con;

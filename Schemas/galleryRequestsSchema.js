@@ -1,38 +1,47 @@
-const con =require('../apis/config')
+const con = require('../apis/config');
+
 exports.gallery_requests = () => {
   try {
-    // Create gallery_requests table
-    const galleryRequestsQuery = `
-      CREATE TABLE IF NOT EXISTS gallery_requests (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        event_name VARCHAR(255) NOT NULL,
-        uploaded_date DATE NOT NULL,
-        description TEXT,
-        main_page ENUM('yes', 'no') NOT NULL,
-        admin_approval ENUM('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
-        added_by VARCHAR(255) NOT NULL
-      );
-    `;
-
-    con.query(galleryRequestsQuery, (err, result) => {
+    // Drop existing gallery_requests table if it exists
+    const dropGalleryRequestsQuery = `DROP TABLE IF EXISTS gallery_requests;`;
+    con.query(dropGalleryRequestsQuery, (err, result) => {
       if (err) {
-        console.error('Error creating gallery_requests table:', err);
+        console.error('Error dropping gallery_requests table:', err);
+      } else {
+        console.log('gallery_requests table dropped successfully.');
       }
     });
 
-    // Create gallery_images table
-    const galleryImagesQuery = `
-      CREATE TABLE IF NOT EXISTS gallery_images (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_id INT,
-        filename VARCHAR(255) NOT NULL,
-        FOREIGN KEY (request_id) REFERENCES gallery_requests(id) ON DELETE CASCADE
+    // Drop existing gallery_images table if it exists
+    const dropGalleryImagesQuery = `DROP TABLE IF EXISTS gallery_images;`;
+    con.query(dropGalleryImagesQuery, (err, result) => {
+      if (err) {
+        console.error('Error dropping gallery_images table:', err);
+      } else {
+        console.log('gallery_images table dropped successfully.');
+      }
+    });
+
+    // Create the new galleryimages table
+    const createGalleryImagesTableQuery = `
+      CREATE TABLE IF NOT EXISTS galleryimages (
+        id SERIAL PRIMARY KEY,                          -- Auto-incrementing unique identifier
+        filepath VARCHAR(255) NOT NULL,                 -- Path where the image is stored on the server
+        imagelink VARCHAR(255) NOT NULL,                -- Link to access the image, usually a URL
+        description TEXT,                               -- Description of the image
+        uploaded_date DATE NOT NULL,                    -- Date the image was uploaded
+        event_name VARCHAR(255),                        -- Name of the event associated with the image
+        main_page BOOLEAN DEFAULT FALSE,                -- Indicates if the image should be on the main page
+        admin_approval VARCHAR(50) DEFAULT 'pending',   -- Status of admin approval (e.g., pending, approved)
+        added_by VARCHAR(100)                           -- Username or identifier of the person who uploaded the image
       );
     `;
 
-    con.query(galleryImagesQuery, (err, result) => {
+    con.query(createGalleryImagesTableQuery, (err, result) => {
       if (err) {
-        console.error('Error creating gallery_images table:', err);
+        console.error('Error creating galleryimages table:', err);
+      } else {
+        console.log('galleryimages table created successfully.');
       }
     });
 
