@@ -1,8 +1,11 @@
 const multer = require('multer');
 const connection = require('../config');
 const con = require('../config');
-import ips from '../api.json';
+//const api_ip ='http://localhost:8888';
+
+//import ips from '../api.json';
 //const api_ip = ips.server_ip ;
+
 const api_ip = 'https://api.jntugv.edu.in'
 const fs_existsSync = require('fs').existsSync
 const fs_mkdirSync = require('fs').mkdirSync
