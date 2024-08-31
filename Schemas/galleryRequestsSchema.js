@@ -1,8 +1,26 @@
-const con = require('../apis/config');
+const con = require('../apis/config.js');
 
 exports.gallery_requests = () => {
   try {
-    
+    // Drop existing gallery_requests table if it exists
+    const dropGalleryRequestsQuery = `DROP TABLE IF EXISTS gallery_requests;`;
+    con.query(dropGalleryRequestsQuery, (err, result) => {
+      if (err) {
+        console.error('Error dropping gallery_requests table:', err);
+      } else {
+        console.log('gallery_requests table dropped successfully.');
+      }
+    });
+
+    // Drop existing gallery_images table if it exists
+    const dropGalleryImagesQuery = `DROP TABLE IF EXISTS gallery_images;`;
+    con.query(dropGalleryImagesQuery, (err, result) => {
+      if (err) {
+        console.error('Error dropping gallery_images table:', err);
+      } else {
+        console.log('gallery_images table dropped successfully.');
+      }
+    });
 
     // Create the new galleryimages table
     const createGalleryImagesTable = `
