@@ -23,7 +23,7 @@ exports.gallery_requests = () => {
     });
 
     // Create the new galleryimages table
-    const createGalleryImagesTableQuery = `
+    const createGalleryImagesTable = `
       CREATE TABLE IF NOT EXISTS galleryimages (
         id SERIAL PRIMARY KEY,                          -- Auto-incrementing unique identifier
         filepath VARCHAR(255) NOT NULL,                 -- Path where the image is stored on the server
@@ -37,7 +37,7 @@ exports.gallery_requests = () => {
       );
     `;
 
-    con.query(createGalleryImagesTableQuery, (err, result) => {
+    con.query(createGalleryImagesTable, (err, result) => {
       if (err) {
         console.error('Error creating galleryimages table:', err);
       } else {
