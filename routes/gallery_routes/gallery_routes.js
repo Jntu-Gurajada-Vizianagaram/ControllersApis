@@ -4,11 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const con = require('../../apis/config.js');
 
-
 const router = express.Router();
 
 // Replace with your server's IP address or domain
-const server_ip = 'https://api.jntugv.edu.in'  || 'http://localhost:8888';
+const server_ip = 'https://api.jntugv.edu.in' || 'http://localhost:8888';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -26,12 +25,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Route to upload multiple gallery images and save each image's data to the database
-router.post('/add-gallery-images', upload.array('files'), (req, res) => {
+router.post('/add-gallery-images', upload.array('files'), async (req, res) => {
   const { event_name, uploaded_date, description, main_page, admin_approval, added_by } = req.body;
   const files = req.files;
 
   const galleryImages = files.map(file => {
-    const filePath = `../../storage/gallery/${file.filename}`;
+    const filePath = path.join('../../storage/gallery', file.filename);
     const imagelink = `${server_ip}/api/gallery/image/${file.filename}`;
     return {
       filepath: filePath,
@@ -47,15 +46,19 @@ router.post('/add-gallery-images', upload.array('files'), (req, res) => {
 
   const insertImagesQuery = 'INSERT INTO galleryimages SET ?';
 
-  galleryImages.forEach(imageData => {
-    con.query(insertImagesQuery, imageData, (err, result) => {
-      if (err) {
-        return res.status(500).json({ error: err });
-      }
-    });
-  });
-
-  res.status(200).json({ message: 'Files uploaded and data saved successfully' });
+  try {
+    await Promise.all(galleryImages.map(imageData => {
+      return new Promise((resolve, reject) => {
+        con.query(insertImagesQuery, imageData, (err, result) => {
+          if (err) return reject(err);
+          resolve(result);
+        });
+      });
+    }));
+    res.status(200).json({ message: 'Files uploaded and data saved successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
 // Route to get all gallery images
@@ -89,8 +92,8 @@ router.delete('/delete-gallery-image/:id', (req, res) => {
     if (err) return res.status(500).json({ error: err });
     if (results.length === 0) return res.status(404).json({ error: 'Image not found' });
 
-    const filepath = results[0].filepath;
-    fs.unlink(path.join(__dirname, '..', filepath), (err) => {
+    const filepath = path.join(__dirname, '..', results[0].filepath);
+    fs.unlink(filepath, (err) => {
       if (err) return res.status(500).json({ error: 'Failed to delete image from server' });
 
       con.query('DELETE FROM galleryimages WHERE id = ?', [id], (err) => {
