@@ -15,19 +15,19 @@ const mysql = require("mysql2");
 //   database: "jntugv",
 //   port: "3306",
 // });
-const con=mysql.createConnection({
-    host:"localhost",
-    user:"dbadmin",
-    password:"Jntugv@dmc23",
-    database:"jntugv",
-    port:"3306"
-})
-
 // const con=mysql.createConnection({
 //     host:"localhost",
-//     user:"root",
-//     password:"Anil@73",
+//     user:"dbadmin",
+//     password:"Jntugv@dmc23",
 //     database:"jntugv",
-//     port:"3306"  ,  //use your database port here
+//     port:"3306"
 // })
+
+const con=mysql.createConnection({
+    host:"localhost",
+    user:"root",
+    password:"Anil@73",
+    database:"jntugv",
+    port:"3306"  ,  //use your database port here
+})
 module.exports = con;

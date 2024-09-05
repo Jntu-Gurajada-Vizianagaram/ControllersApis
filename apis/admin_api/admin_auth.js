@@ -30,6 +30,50 @@ app.use(cors())
 //   },
 // })
 // );
+exports.login = (req, res) => {
+  try {
+      const { credentials } = req.body;
+      const sql = "SELECT role, password, name FROM admins WHERE username=(?);";
+
+      con.query(sql, [credentials.username], async (err, result) => {
+          if (err) {
+              console.log(err);
+              res.status(500).json({ islogin: false, message: "Database Error" });
+          } else if (result.length > 0) {
+              let storedPassword = result[0].password;
+
+              // If the password is plain text (not hashed), hash it and update the database
+              if (!storedPassword.startsWith('$2b$')) { // bcrypt hashed passwords start with $2b$
+                  const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
+                  const updateSql = "UPDATE admins SET password = ? WHERE username = ?";
+                  con.query(updateSql, [hashedPassword, credentials.username], (err) => {
+                      if (err) {
+                          console.log("Failed to update password: " + err);
+                      }
+                  });
+                  storedPassword = hashedPassword;
+              }
+
+              // Compare the entered password with the stored hashed password
+              const isMatch = await bcrypt.compare(credentials.password, storedPassword);
+
+              if (isMatch) {
+                  const role = result[0].role;
+                  const admin_name = result[0].name;
+                  req.session.userid = role;
+                  res.send({ islogin: true, role: role, admin: admin_name });
+              } else {
+                  res.send({ islogin: false, message: "Incorrect Password" });
+              }
+          } else {
+              res.send({ islogin: false, message: "Admin Doesn't Exist" });
+          }
+      });
+  } catch (error) {
+      console.log(error);
+      res.status(500).json({ islogin: false, message: "Server Error" });
+  }
+};
 
 
 exports.alladmins = (req, res) => {
