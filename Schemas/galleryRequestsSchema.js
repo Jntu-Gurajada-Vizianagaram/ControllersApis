@@ -17,9 +17,9 @@ exports.gallery_requests = () => {
     // Execute the CREATE TABLE query
     con.query(createGalleryImagesTable, (err, result) => {
       if (err) {
-        console.error('Error creating galleryimages table:', err);
+        console.error('Error creating  table:', err);
       } else {
-        console.log('galleryimages table created successfully.');
+        // console.log('');
       }
     });
 

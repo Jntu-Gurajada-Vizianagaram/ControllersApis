@@ -8,7 +8,7 @@ const ips = require('../../apis/api.json');
 const router = express.Router();
 
 // Replace with your server's IP address or domain
-const server_ip = ips.server_ip;
+let server_ip= 'http://localhost:8888' || 'https://api.jntugv.edu.in'
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
