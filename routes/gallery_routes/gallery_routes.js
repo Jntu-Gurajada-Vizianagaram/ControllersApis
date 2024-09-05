@@ -7,7 +7,7 @@ const con = require('../../apis/config.js');
 
 const router = express.Router();
 
-let server_ip= 'http://localhost:8888' || 'https://api.jntugv.edu.in'
+const server_ip= 'http://localhost:8888' || 'https://api.jntugv.edu.in'
 
 
 const storage = multer.diskStorage({
