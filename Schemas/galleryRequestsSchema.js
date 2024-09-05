@@ -2,24 +2,7 @@ const con = require('../apis/config.js');
 
 exports.gallery_requests = () => {
   try {
-    // Drop specific columns from the galleryimages table
-    const alterGalleryImagesTable = `
-      ALTER TABLE jntugv.galleryimages 
-      DROP COLUMN admin_approval,
-      DROP COLUMN main_page,
-      DROP COLUMN filepath;
-    `;
-
-    // Execute the ALTER TABLE query
-    con.query(alterGalleryImagesTable, (err, result) => {
-      if (err) {
-        console.error('Error altering galleryimages table:', err);
-      } else {
-        console.log('Columns dropped successfully from galleryimages table.');
-      }
-    });
-
-    // Create the galleryimages table if it doesn't exist
+        // Create the galleryimages table if it doesn't exist
     const createGalleryImagesTable = `
       CREATE TABLE IF NOT EXISTS galleryimages (
         id SERIAL PRIMARY KEY,                          -- Auto-incrementing unique identifier
