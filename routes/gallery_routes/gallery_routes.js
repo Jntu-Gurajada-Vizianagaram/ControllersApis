@@ -7,8 +7,7 @@ const con = require('../../apis/config.js');
 
 const router = express.Router();
 
-// Replace with your server's IP address or domain
-const server_ip= 'https://api.jntugv.edu.in';
+const server_ip = "https://api.jntugv.edu.in";
 
 
 const storage = multer.diskStorage({
@@ -20,10 +19,9 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+    cb(null, file.originalname);
   }
 });
-
 
 const upload = multer({ storage: storage });
 
