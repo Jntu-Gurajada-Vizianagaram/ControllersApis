@@ -3,12 +3,12 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const con = require('../../apis/config.js');
-const ips = require('../../apis/api.json');
+//const ips = require('../../apis/api.json');
 
 const router = express.Router();
 
 // Replace with your server's IP address or domain
-let server_ip= 'http://localhost:8888' || 'https://api.jntugv.edu.in'
+const server_ip= 'https://api.jntugv.edu.in';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -19,9 +19,10 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname);
+    cb(null, Date.now() + '-' + file.originalname);
   }
 });
+
 
 const upload = multer({ storage: storage });
 
