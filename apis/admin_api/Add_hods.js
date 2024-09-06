@@ -1,13 +1,13 @@
 const con = require('../config');
 const bcrypt = require('bcrypt');
-const saltRounds = 10; // The cost factor for hashing
+const saltRounds = 10; // The cost factor for bcrypt hashing
 
 // Add a new admin (HOD)
 exports.addhods = async (req, res) => {
     const { data } = req.body;
     console.log(data);
 
-    // Hash the password
+    // Hash the password before storing
     try {
         const hashedPassword = await bcrypt.hash(data.password, saltRounds);
 
@@ -34,7 +34,7 @@ exports.alladmins = (req, res) => {
         con.query(query, (err, result) => {
             if (err) {
                 res.json({ name: "ADMIN DATA", role: "NOT Fetched" });
-                console.log(err + "not fetched");
+                console.log(err + " not fetched");
             } else {
                 res.json(result);
             }
@@ -44,11 +44,11 @@ exports.alladmins = (req, res) => {
     }
 };
 
-// Login
+// Login function that checks and hashes plain-text passwords if needed
 exports.login = (req, res) => {
     try {
         const { credentials } = req.body;
-        const sql = "SELECT role, password, name FROM admins WHERE username=(?);";
+        const sql = "SELECT id, role, password, name FROM admins WHERE username = ?;";
 
         con.query(sql, [credentials.username], async (err, result) => {
             if (err) {
@@ -56,14 +56,17 @@ exports.login = (req, res) => {
                 res.status(500).json({ islogin: false, message: "Database Error" });
             } else if (result.length > 0) {
                 let storedPassword = result[0].password;
+                const adminId = result[0].id;
 
-                // If the password is plain text (not hashed), hash it and update the database
-                if (!storedPassword.startsWith('$2b$')) { // bcrypt hashed passwords start with $2b$
+                // Check if the password is not hashed (plain text)
+                if (!storedPassword.startsWith('$2b$')) { 
                     const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
-                    const updateSql = "UPDATE admins SET password = ? WHERE username = ?";
-                    con.query(updateSql, [hashedPassword, credentials.username], (err) => {
+                    const updateSql = "UPDATE admins SET password = ? WHERE id = ?";
+                    con.query(updateSql, [hashedPassword, adminId], (err) => {
                         if (err) {
                             console.log("Failed to update password: " + err);
+                        } else {
+                            console.log(`Password hashed and updated for user: ${credentials.username}`);
                         }
                     });
                     storedPassword = hashedPassword;
@@ -130,5 +133,44 @@ exports.role_session = (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({ msg: "Server Error" });
+    }
+};
+exports.hashExistingPasswords = async (req, res) => {
+    try {
+        const selectSql = "SELECT id, username, password FROM admins";
+        
+        // Fetch all existing admins
+        con.query(selectSql, async (err, result) => {
+            if (err) {
+                console.log("Error fetching data: " + err);
+                res.status(500).json({ Success: false, MSG: "Database error" });
+            } else {
+                // Loop through all admins and hash passwords if not already hashed
+                for (const admin of result) {
+                    const { id, username, password } = admin;
+                    
+                    // Check if the password is already hashed
+                    if (!password.startsWith('$2b$')) {
+                        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+                        // Update the hashed password back in the database
+                        const updateSql = "UPDATE admins SET password = ? WHERE id = ?";
+                        con.query(updateSql, [hashedPassword, id], (err) => {
+                            if (err) {
+                                console.log(`Failed to update password for ${username}: ` + err);
+                            } else {
+                                console.log(`Password hashed for ${username}`);
+                            }
+                        });
+                    } else {
+                        console.log(`Password already hashed for ${username}`);
+                    }
+                }
+                res.json({ Success: true, MSG: "All passwords hashed (if needed)" });
+            }
+        });
+    } catch (error) {
+        console.log("Error: " + error);
+        res.status(500).json({ Success: false, MSG: "Server error" });
     }
 };
