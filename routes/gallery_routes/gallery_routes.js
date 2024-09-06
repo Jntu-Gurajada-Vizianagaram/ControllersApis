@@ -10,6 +10,7 @@ const router = express.Router();
 // Replace with your server's IP address or domain
 const server_ip= 'https://api.jntugv.edu.in';
 
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, '../../storage/gallery');
