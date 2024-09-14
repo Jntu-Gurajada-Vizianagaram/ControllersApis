@@ -5,7 +5,7 @@ const saltRounds = 10; // The cost factor for bcrypt hashing
 // Add a new admin (HOD)
 exports.addhods = async (req, res) => {
     const { data } = req.body;
-    console.log(data);
+    //console.log(data);
 
     // Hash the password before storing
     try {
