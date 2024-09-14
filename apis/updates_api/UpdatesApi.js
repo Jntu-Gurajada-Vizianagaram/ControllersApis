@@ -2,7 +2,7 @@ const multer = require('multer');
 const fs = require('fs');
 const connection = require('../config');
 require('dotenv').config();
-const api_ip = process.env.domainIp || 'https://api.jntugv.edu.in';
+const api_ip = 'https://api.jntugv.edu.in';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -95,8 +95,6 @@ exports.update_event = (req, res) => {
       return;
     }
 
-    // Log the result to verify if the record is being updated
-    console.log('SQL Query Result:', result);
 
     if (result.affectedRows === 0) {
       res.status(404).json({ message: 'No record found with the provided id' });
