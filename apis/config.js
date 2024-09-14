@@ -28,6 +28,6 @@ const con=mysql.createConnection({
 //     user:"root",
 //     password:"Anil@73",
 //     database:"jntugv",
-//     port:"3306"  ,
+//     port:"3306"  ,  //use your database port here
 // })
 module.exports = con;
