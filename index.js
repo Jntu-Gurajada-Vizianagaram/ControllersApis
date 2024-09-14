@@ -7,7 +7,7 @@ require('dotenv').config();
 const schemas = require("./Schemas/AllSchemas");
 const admins = require("./routes/admin_routes/AdminRoute");
 const mailing = require("./routes/grievance_routes/GrievanceRoutes");
-const updates = require("./routes/updates_routes/updates_api_routes");
+const updates = require("./routes/updates_routes/upates_api_routes");
 const dmcupload = require("./routes/dmc_routes/upload_api_routes");
 const affliatedColleges = require("./routes/affliated_colleges_routes/AffliatedCollegesRoutes");
 const results = require("./routes/results_routes/ResultsRoutes");
