@@ -26,7 +26,6 @@ exports.gallery_requests = () => {
   } catch (err) {
     console.error('Error in table creation:', err);
   }
-  
   try {
     const deleteImagesQuery = `
       DELETE FROM galleryimages
