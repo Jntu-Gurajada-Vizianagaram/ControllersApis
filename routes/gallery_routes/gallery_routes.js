@@ -3,12 +3,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const con = require('../../apis/config.js');
-//const ips = require('../../apis/api.json');
+// const ips = require('../../apis/api.json');
 
 const router = express.Router();
 
 const server_ip = "https://api.jntugv.edu.in";
-
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -19,7 +18,11 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname);
+    // Append timestamp to prevent filename duplication
+    const timestamp = Date.now();
+    const fileExt = path.extname(file.originalname);
+    const baseName = path.basename(file.originalname, fileExt);
+    cb(null, `${baseName}-${timestamp}${fileExt}`);
   }
 });
 
@@ -44,15 +47,27 @@ router.post('/add-gallery-images', upload.array('files'), async (req, res) => {
   });
 
   const insertImagesQuery = 'INSERT INTO galleryimages SET ?';
+  const checkImageExistsQuery = 'SELECT * FROM galleryimages WHERE imagelink = ?';
 
   try {
-    await Promise.all(galleryImages.map(imageData => {
-      return new Promise((resolve, reject) => {
-        con.query(insertImagesQuery, imageData, (err, result) => {
+    await Promise.all(galleryImages.map(async (imageData) => {
+      // Check if image already exists in the database
+      const existingImage = await new Promise((resolve, reject) => {
+        con.query(checkImageExistsQuery, [imageData.imagelink], (err, result) => {
           if (err) return reject(err);
           resolve(result);
         });
       });
+
+      if (existingImage.length === 0) {
+        // Insert image if it doesn't already exist
+        await new Promise((resolve, reject) => {
+          con.query(insertImagesQuery, imageData, (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+          });
+        });
+      }
     }));
     res.status(200).json({ message: 'Files uploaded and data saved successfully' });
   } catch (err) {
@@ -83,7 +98,6 @@ router.get('/image/:filename', (req, res) => {
   });
 });
 
-// Route to delete a specific gallery image
 // Route to delete a specific gallery image
 router.delete('/delete-gallery-image/:id', (req, res) => {
   const id = req.params.id;
@@ -129,7 +143,5 @@ router.delete('/delete-gallery-image/:id', (req, res) => {
     });
   });
 });
-
-
 
 module.exports = router;
