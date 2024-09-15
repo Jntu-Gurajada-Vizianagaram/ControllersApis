@@ -15,27 +15,19 @@ const mysql = require("mysql2");
 //   database: "jntugv",
 //   port: "3306",
 // });
-// // const con=mysql.createConnection({
-// //     host:"localhost",
-// //     user:"dbadmin",
-// //     password:"Jntugv@dmc23",
-//     database:"jntugv",
-//     port:"3306"
-// })
 const con = mysql.createConnection({
-            host: "localhost",
-            user: "root",
-            password: "Vijay@68",
-            //     database:"jntugv",
-            //     port: "3306"
-            // })
+    host: "localhost",
+    user: "dbadmin",
+    password: "Jntugv@dmc23",
+    database: "jntugv",
+    port: "3306"
+})
 
-            const con = mysql.createConnection({
-                host: "localhost",
-                user: "root",
-                password: "Vijay@68.",
-                database: "jntugv",
-                port: "3306"
-            });
-
-            module.exports = con;
+// const con = mysql.createConnection({
+//     host: "localhost",
+//     user: "root",
+//     password: "Vijay@68.",
+//     database: "jntugv",
+//     port: "3306"
+// });
+module.exports = con;
