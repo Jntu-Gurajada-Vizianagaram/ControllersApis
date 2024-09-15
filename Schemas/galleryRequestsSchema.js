@@ -1,38 +1,25 @@
-const con =require('../apis/config')
+const con = require('../apis/config.js');
+
 exports.gallery_requests = () => {
   try {
-    // Create gallery_requests table
-    const galleryRequestsQuery = `
-      CREATE TABLE IF NOT EXISTS gallery_requests (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        event_name VARCHAR(255) NOT NULL,
-        uploaded_date DATE NOT NULL,
-        description TEXT,
-        main_page ENUM('yes', 'no') NOT NULL,
-        admin_approval ENUM('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
-        added_by VARCHAR(255) NOT NULL
+        // Create the galleryimages table if it doesn't exist
+    const createGalleryImagesTable = `
+      CREATE TABLE IF NOT EXISTS galleryimages (
+        id SERIAL PRIMARY KEY,                          -- Auto-incrementing unique identifier
+        imagelink VARCHAR(255) NOT NULL,                -- Link to access the image, usually a URL
+        description TEXT,                               -- Description of the image
+        uploaded_date DATE NOT NULL,                    -- Date the image was uploaded
+        event_name VARCHAR(255),                        -- Name of the event associated with the image
+        added_by VARCHAR(100)                           -- Username or identifier of the person who uploaded the image
       );
     `;
 
-    con.query(galleryRequestsQuery, (err, result) => {
+    // Execute the CREATE TABLE query
+    con.query(createGalleryImagesTable, (err, result) => {
       if (err) {
-        console.error('Error creating gallery_requests table:', err);
-      }
-    });
-
-    // Create gallery_images table
-    const galleryImagesQuery = `
-      CREATE TABLE IF NOT EXISTS gallery_images (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_id INT,
-        filename VARCHAR(255) NOT NULL,
-        FOREIGN KEY (request_id) REFERENCES gallery_requests(id) ON DELETE CASCADE
-      );
-    `;
-
-    con.query(galleryImagesQuery, (err, result) => {
-      if (err) {
-        console.error('Error creating gallery_images table:', err);
+        console.error('Error creating  table:', err);
+      } else {
+        // console.log('');
       }
     });
 
