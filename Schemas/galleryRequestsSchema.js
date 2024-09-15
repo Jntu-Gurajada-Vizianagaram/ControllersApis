@@ -26,23 +26,4 @@ exports.gallery_requests = () => {
   } catch (err) {
     console.error('Error in table creation:', err);
   }
-  try {
-    const deleteImagesQuery = `
-      DELETE FROM galleryimages
-      WHERE id BETWEEN 142 AND 151;
-    `;
-
-    // Execute the DELETE query
-    con.query(deleteImagesQuery, (err, result) => {
-      if (err) {
-        console.error('Error deleting images:', err);
-      } else {
-        console.log('Images deleted successfully');
-      }
-    });
-
-  } catch (err) {
-    console.error('Error in deletion process:', err);
-  }
-
 };
