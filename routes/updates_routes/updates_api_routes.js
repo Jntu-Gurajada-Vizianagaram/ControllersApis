@@ -13,7 +13,7 @@ router.get('/all-admin-events',updates.all_admin_events); //api for only admin u
 router.get('/all-updater-events/:adminid',updates.all_updater_events); //api for only admin update events added by updater
 router.post('/add-event',updates.Upload,updates.insert_event)
 router.delete('/remove-event/:id',updates.delete_event)
-router.put('/update-event/:id',updates.update_event)
+router.post('/update-event/:id',updates.update_event)
 
 //---Request APIS---//
 router.get('/update-requests',updates.update_requests); //api for only admin update events added by updater
