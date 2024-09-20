@@ -40,7 +40,7 @@ const allfiles = require('../../apis/admin_api/AllFiles')
 const exampdfs = require('../../apis/for_wednesday_exam/ExamPDFs')
 
 
-router.get('/getadmins',adminauth.alladmins)
+router.get('/getadmins',hods.alladmins)
 router.post('/login',adminauth.login)
 router.get('/getrole',adminauth.role_session)
 router.post('/add-hod',hods.addhods)
