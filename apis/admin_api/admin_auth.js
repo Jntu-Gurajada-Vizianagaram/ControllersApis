@@ -1,8 +1,10 @@
-const con = require("../config");
+const con = require("../config"); // Assuming config.js handles your database connection
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const express = require('express');
 const cors = require("cors");
+// const { OAuth2Client } = require('google-auth-library');
+// const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const session = require('express-session');
 const bodyparser = require('body-parser');
@@ -12,125 +14,172 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
+app.use(bodyparser.json());
+app.use(bodyparser.urlencoded({ extended: true }));
+app.use(cookieparser());
 
-// app.use(cors({
-//   origin :["http://localhost:3000"],
-//   methods :["GET","POST"],
-//   credentials : true,
-// }))
-
-// app.use(cookieparser())
-// app.use(bodyparser.urlencoded({extended:true}));
-
+// Session configuration
 // app.use(session({
-//   key : "adminrole",
-//   secret : "admins",
-//   resave : false,
-//   saveUninitialized : false,
-//   cookie:{
-//     expires: 60*60*24,
-//   },
+//     secret: process.env.SESSION_SECRET,
+//     resave: false,
+//     saveUninitialized: true,
+//     cookie: { secure: true } // Set to true if using HTTPS
 // }));
 
+// Admin Login Function
 exports.login = (req, res) => {
-  try {
-      const { credentials } = req.body;
-      const sql = "SELECT role, password, name FROM admins WHERE username=(?);";
+    const { username, password } = req.body;
+    const sql = "SELECT * FROM admins WHERE username = ?";
 
-      con.query(sql, [credentials.username], async (err, result) => {
-          if (err) {
-              console.log(err);
-              res.status(500).json({ islogin: false, message: "Database Error" });
-          } else if (result.length > 0) {
-              let storedPassword = result[0].password;
+    con.query(sql, [username], (err, result) => {
+        if (err) {
+            console.error("Error during login: ", err);
+            return res.status(500).json({ Success: false, MSG: "Server error during login." });
+        }
 
-              // If the password is plain text (not hashed), hash it and update the database
-              if (!storedPassword.startsWith('$2b$')) { // bcrypt hashed passwords start with $2b$
-                  const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
-                  const updateSql = "UPDATE admins SET password = ? WHERE username = ?";
-                  con.query(updateSql, [hashedPassword, credentials.username], (err) => {
-                      if (err) {
-                          console.log("Failed to update password: " + err);
-                      }
-                  });
-                  storedPassword = hashedPassword;
-              }
+        if (result.length === 0) {
+            return res.status(401).json({ Success: false, MSG: "Invalid username or password." });
+        }
 
-              // Compare the entered password with the stored hashed password
-              const isMatch = await bcrypt.compare(credentials.password, storedPassword);
+        const admin = result[0];
 
-              if (isMatch) {
-                  const role = result[0].role;
-                  const admin_name = result[0].name;
-                  req.session.userid = role;
-                  res.send({ islogin: true, role: role, admin: admin_name });
-              } else {
-                  res.send({ islogin: false, message: "Incorrect Password" });
-              }
-          } else {
-              res.send({ islogin: false, message: "Admin Doesn't Exist" });
-          }
-      });
-  } catch (error) {
-      console.log(error);
-      res.status(500).json({ islogin: false, message: "Server Error" });
-  }
+        bcrypt.compare(password, admin.password, (err, isMatch) => {
+            if (err) {
+                console.error("Error during password comparison: ", err);
+                return res.status(500).json({ Success: false, MSG: "Server error during login." });
+            }
+
+            if (isMatch) {
+                req.session.userid = admin.role;
+                req.session.username = admin.username;
+                return res.json({ Success: true, MSG: "Login successful", role: admin.role });
+            } else {
+                return res.status(401).json({ Success: false, MSG: "Invalid username or password." });
+            }
+        });
+    });
 };
 
+// // Google OAuth Login
+// exports.googleLogin = async (req, res) => {
+//     try {
+//         const { tokenId } = req.body;
+
+//         if (!tokenId) {
+//             return res.status(400).json({ Success: false, MSG: "Token ID is required." });
+//         }
+
+//         // const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+//         // const ticket = await client.verifyIdToken({
+//         //     idToken: tokenId,
+//         //     audience: process.env.GOOGLE_CLIENT_ID
+//         // });
+
+//         const { email } = ticket.getPayload();
+
+//         const sql = "SELECT * FROM oauth_allowlist WHERE email = ?";
+//         con.query(sql, [email], (err, result) => {
+//             if (err) {
+//                 console.error("Error verifying Google OAuth: ", err);
+//                 return res.status(500).json({ Success: false, MSG: "Server error during Google OAuth." });
+//             }
+
+//             if (result.length === 0) {
+//                 return res.status(403).json({ Success: false, MSG: "Email not authorized for login." });
+//             }
+
+//             req.session.userid = result[0].role || "admin"; // Use the role from the database if available
+//             req.session.username = email;
+//             res.json({ Success: true, MSG: "Google OAuth login successful", role: req.session.userid });
+//         });
+//     } catch (error) {
+//         console.error("Error in Google OAuth login: ", error);
+//         res.status(500).json({ Success: false, MSG: "Server error during Google OAuth login." });
+//     }
+// };
+
+// Fetch All Admins
 exports.alladmins = (req, res) => {
-  const query = "SELECT * FROM admins;";
-  try {
-    con.query(query, (err, result) => {
-      if (err) {
-        res.json({name:"ADMIN DATA",role:"NOT Fetched"})
-        console.log(err + "not fetched");
-      } else {
+    const sql = "SELECT * FROM admins";
+
+    con.query(sql, (err, result) => {
+        if (err) {
+            console.error("Error fetching admins: ", err);
+            return res.status(500).json({ Success: false, MSG: "Server error fetching admins." });
+        }
+
         res.json(result);
-      }
     });
-  } catch (error) {
-    console.log(error);
-  }
 };
 
+// Check Role from Session
 exports.role_session = (req, res) => {
-  try {
     const role = req.session.userid;
-    if (role !== "") {
-      res.status(200).json({ MSG: role });
+    if (role) {
+        res.json({ Success: true, role });
     } else {
-      console.log("Role Not Assigned");
-      res.json({ msg: "role not assigned" });
+        res.status(401).json({ Success: false, MSG: "Not logged in." });
     }
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ msg: "Server Error" });
-  }
 };
 
-// Update HOD (Admin) details
+// Update HOD (Admin) Details
 exports.update_hod = async (req, res) => {
-  const adminId = req.params.id;
-  const { name, username, password, role } = req.body;
+    const { id, name, username, password, role } = req.body;
+    let sql, params;
 
-  try {
-    // If a new password is provided, hash it before updating
-    let hashedPassword = password;
     if (password) {
-      hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        sql = "UPDATE admins SET name = ?, username = ?, password = ?, role = ? WHERE id = ?";
+        params = [name, username, hashedPassword, role, id];
+    } else {
+        sql = "UPDATE admins SET name = ?, username = ?, role = ? WHERE id = ?";
+        params = [name, username, role, id];
     }
 
-    const sql = "UPDATE admins SET name = ?, username = ?, password = ?, role = ? WHERE id = ?;";
-    con.query(sql, [name, username, hashedPassword, role, adminId], (err, result) => {
-      if (err) {
-        console.log("Error updating admin: " + err);
-        res.status(500).json({ Success: false, MSG: "Failed to update admin" });
-      } else {
-        res.json({ Success: true, MSG: "Admin updated successfully" });
-      }
+    con.query(sql, params, (err, result) => {
+        if (err) {
+            console.error("Error updating admin: ", err);
+            return res.status(500).json({ Success: false, MSG: "Server error updating admin." });
+        }
+
+        res.json({ Success: true, MSG: "Admin updated successfully." });
     });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ Success: false, MSG: "Error updating admin" });
-  }
 };
+
+// Remove HOD (Admin)
+exports.remove_hod = async (req, res) => {
+    const adminId = req.params.id;
+    const sql = "DELETE FROM admins WHERE id = ?;";
+
+    con.query(sql, [adminId], (err, result) => {
+        if (err) {
+            console.error("Error removing admin: ", err);
+            return res.status(500).json({ Success: false, MSG: "Server error removing admin." });
+        }
+
+        res.json({ Success: true, MSG: "Admin removed successfully." });
+    });
+};
+
+// Add Email to Google OAuth Allowlist (Only by Super-Admin)
+exports.addGoogleAllowlist = (req, res) => {
+    const { email } = req.body;
+    const role = req.session.userid;
+
+    if (role !== 'Admin') {
+        return res.status(403).json({ Success: false, MSG: "Unauthorized access" });
+    }
+
+    const sql = "INSERT INTO oauth_allowlist (email) VALUES (?);";
+
+    con.query(sql, [email], (err, result) => {
+        if (err) {
+            console.error("Error adding email to allowlist: ", err);
+            return res.status(500).json({ Success: false, MSG: "Server error adding email to allowlist." });
+        }
+
+        res.json({ Success: true, MSG: "Email added to allowlist successfully." });
+    });
+};
+
+module.exports = app;
