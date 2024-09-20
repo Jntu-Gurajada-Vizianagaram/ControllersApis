@@ -3,8 +3,8 @@ const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const express = require('express');
 const cors = require("cors");
-// const { OAuth2Client } = require('google-auth-library');
-// const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const session = require('express-session');
 const bodyparser = require('body-parser');
@@ -19,12 +19,12 @@ app.use(bodyparser.urlencoded({ extended: true }));
 app.use(cookieparser());
 
 // Session configuration
-// app.use(session({
-//     secret: process.env.SESSION_SECRET,
-//     resave: false,
-//     saveUninitialized: true,
-//     cookie: { secure: true } // Set to true if using HTTPS
-// }));
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Set to true if using HTTPS
+}));
 
 // Admin Login Function
 exports.login = (req, res) => {
@@ -60,43 +60,43 @@ exports.login = (req, res) => {
     });
 };
 
-// // Google OAuth Login
-// exports.googleLogin = async (req, res) => {
-//     try {
-//         const { tokenId } = req.body;
+// Google OAuth Login
+exports.googleLogin = async (req, res) => {
+    try {
+        const { tokenId } = req.body;
 
-//         if (!tokenId) {
-//             return res.status(400).json({ Success: false, MSG: "Token ID is required." });
-//         }
+        if (!tokenId) {
+            return res.status(400).json({ Success: false, MSG: "Token ID is required." });
+        }
 
-//         // const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-//         // const ticket = await client.verifyIdToken({
-//         //     idToken: tokenId,
-//         //     audience: process.env.GOOGLE_CLIENT_ID
-//         // });
+        const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+        const ticket = await client.verifyIdToken({
+            idToken: tokenId,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
 
-//         const { email } = ticket.getPayload();
+        const { email } = ticket.getPayload();
 
-//         const sql = "SELECT * FROM oauth_allowlist WHERE email = ?";
-//         con.query(sql, [email], (err, result) => {
-//             if (err) {
-//                 console.error("Error verifying Google OAuth: ", err);
-//                 return res.status(500).json({ Success: false, MSG: "Server error during Google OAuth." });
-//             }
+        const sql = "SELECT * FROM oauth_allowlist WHERE email = ?";
+        con.query(sql, [email], (err, result) => {
+            if (err) {
+                console.error("Error verifying Google OAuth: ", err);
+                return res.status(500).json({ Success: false, MSG: "Server error during Google OAuth." });
+            }
 
-//             if (result.length === 0) {
-//                 return res.status(403).json({ Success: false, MSG: "Email not authorized for login." });
-//             }
+            if (result.length === 0) {
+                return res.status(403).json({ Success: false, MSG: "Email not authorized for login." });
+            }
 
-//             req.session.userid = result[0].role || "admin"; // Use the role from the database if available
-//             req.session.username = email;
-//             res.json({ Success: true, MSG: "Google OAuth login successful", role: req.session.userid });
-//         });
-//     } catch (error) {
-//         console.error("Error in Google OAuth login: ", error);
-//         res.status(500).json({ Success: false, MSG: "Server error during Google OAuth login." });
-//     }
-// };
+            req.session.userid = result[0].role || "admin"; // Use the role from the database if available
+            req.session.username = email;
+            res.json({ Success: true, MSG: "Google OAuth login successful", role: req.session.userid });
+        });
+    } catch (error) {
+        console.error("Error in Google OAuth login: ", error);
+        res.status(500).json({ Success: false, MSG: "Server error during Google OAuth login." });
+    }
+};
 
 // Fetch All Admins
 exports.alladmins = (req, res) => {
