@@ -50,6 +50,5 @@ router.get('/allstoredfiles',allfiles.Allstoredfiles)
 router.get('/allexampdfs',exampdfs.exam_pdfs)
 router.put('/update_hod/:id',adminauth.update_hod)
 router.post('/api/addGoogleAllowlistEmail',adminauth.addGoogleAllowlist)
-router.put('auth/google',adminauth.googleLogin)
-router
+// router.put('auth/google',adminauth.googleLogin)
 module.exports=router
