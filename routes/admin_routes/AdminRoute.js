@@ -49,7 +49,7 @@ router.get('/generate-password/',pwd.generate_password)
 router.get('/allstoredfiles',allfiles.Allstoredfiles)
 router.get('/allexampdfs',exampdfs.exam_pdfs)
 router.put('/update_hod/:id',adminauth.update_hod)
-router.post('/api/addGoogleAllowlistEmail',adminauth.addGoogleAllowlist)
+//router.post('/api/addGoogleAllowlistEmail',adminauth.addGoogleAllowlist)
 // router.put('auth/google',adminauth.googleLogin)
 // router
 module.exports=router
