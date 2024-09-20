@@ -26,7 +26,7 @@ exports.insert_event = (req, res) => {
 
   connection.query(sql, values, (err, result) => {
     if (err) {
-      console.error('Error inserting data:', err);
+      //console.error('Error inserting data:', err);
       res.status(500).json({ error: 'Error inserting data' });
       return;
     }
@@ -41,7 +41,7 @@ exports.delete_event = (req, res) => {
 
   connection.query(sel, [id], (err, result) => {
     if (err) {
-      console.error('Error selecting data:', err);
+      //console.error('Error selecting data:', err);
       res.status(500).json({ error: 'Error selecting data' });
       return;
     }
@@ -50,7 +50,7 @@ exports.delete_event = (req, res) => {
 
     connection.query(del, [id], (err, result) => {
       if (err) {
-        console.error('Error deleting data:', err);
+       //console.error('Error deleting data:', err);
         res.status(500).json({ error: 'Error deleting data' });
         return;
       }
@@ -58,13 +58,13 @@ exports.delete_event = (req, res) => {
       fs.access(filepath, fs.constants.F_OK, (err) => {
         if (err) {
           res.json(err);
-          console.error('File does not exist');
+          alert('File does not exist');
           return;
         }
 
         fs.unlink(filepath, (err) => {
           if (err) {
-            console.error('Error removing file:', err);
+            alert('Error removing file:', err);
             return;
           }
         });
@@ -76,35 +76,66 @@ exports.delete_event = (req, res) => {
 };
 exports.update_event = (req, res) => {
   const updateId = req.params.id;
-  const { date, title, external_text, external_link, main_page, scrolling, update_type, update_status } = req.body;
+  const { date, title, external_txt, external_lnk, main_page, scrolling, update_type, update_status, submitted_by, admin_approval } = req.body;
 
-  // Check if the updateId and other required fields are provided
-  if (!updateId || !date || !title || !external_text || !external_link || !main_page || !scrolling || !update_type || !update_status) {
-    res.status(400).json({ error: 'Missing required fields' });
-    return;
+  if (!updateId || !date || !title) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
   }
+  const selQuery = `SELECT file_path FROM notification_updates WHERE id = ?`;
 
-  const sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = ?, scrolling = ?, update_type = ?, update_status = ? WHERE id = ?`;
+  connection.query(selQuery, [updateId], (err, results) => {
+      if (err) {
+          res.status(500).json({ error: 'Error fetching event' });
+          return;
+      }
+      
+      if (results.length === 0) {
+          res.status(404).json({ error: 'No event found' });
+          return;
+      }
 
-  const values = [date, title, external_text, external_link, main_page, scrolling, update_type, update_status, updateId];
+      let oldFilePath = results[0].file_path;
+      let sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = ?, scrolling = ?, update_type = ?, update_status = ?, submitted_by = ?, admin_approval = ?`;
+      let values = [date, title, external_txt, external_lnk, main_page, scrolling, update_type, update_status, submitted_by, admin_approval];
 
-  connection.query(sql, values, (err, result) => {
-    if (err) {
-      console.error('Error updating data:', err);
-      res.status(500).json({ error: 'Error updating data' });
-      return;
-    }
+      if (req.file) {
+          sql += `, file_path = ?`;
+          values.push(req.file.filename);
+      }
 
+      sql += ` WHERE id = ?`;
+      values.push(updateId);
+      connection.query(sql, values, (err, result) => {
+          if (err) {
+              res.status(500).json({ error: 'Error updating event' });
+              return;
+          }
+          if (req.file && oldFilePath) {
+              const oldFileFullPath = `./storage/notifications/${oldFilePath}`;
+              fs.access(oldFileFullPath, fs.constants.F_OK, (err) => {
+                  if (err) {
+                      //console.error('Old file does not exist:', oldFileFullPath);
+                      return;
+                  }
 
-    if (result.affectedRows === 0) {
-      res.status(404).json({ message: 'No record found with the provided id' });
-      return;
-    }
+                  fs.unlink(oldFileFullPath, (err) => {
+                      if (err) {
+                          //console.error('Error deleting old file:', err);
+                          res.status(500).json({error:'File Deletion Error Occured..'});
+                          return;
+                      } else {
+                         res.status(200).status({success:"NEW File Uploaded sucessfully"});
+                         return;
+                      }
+                  });
+              });
+          }
 
-    res.json({ message: 'Data updated successfully' });
+          res.json({ message: 'Event updated successfully' });
+      });
   });
 };
-
 
 exports.update_request_accept = (req, res) => {
   const update = req.params.id;
