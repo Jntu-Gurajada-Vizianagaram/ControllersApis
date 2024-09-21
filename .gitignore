@@ -1,3 +1,4 @@
 /storage/gallery/
 /storage/notifications/
 .env
+/apis/config.sql

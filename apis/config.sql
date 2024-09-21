@@ -9,6 +9,4 @@ select * from admins;
 select name from admins where username='admin' and password='pwd@admin' and role='controller';
 select name from admins where username='dsak.official@gmail.com' and password='1437890' and role='developer';
 delete from admins where id=1;
--- drop database jntugv;-- 
-DELETE FROM event_photos
-WHERE id BETWEEN 1 AND 6;
+
