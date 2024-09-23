@@ -1,12 +1,12 @@
 const multer = require('multer');
 const connection = require('../config');
 const con = require('../config');
-//const api_ip ='http://localhost:8888';
+const api_ip ='http://localhost:8888';
 
-//import ips from '../api.json';
-//const api_ip = ips.server_ip ;
+//const { server_ip: api_ip } = require('../api.json');
 
-const api_ip = 'https://api.jntugv.edu.in'
+
+//const api_ip = 'https://api.jntugv.edu.in'
 const fs_existsSync = require('fs').existsSync
 const fs_mkdirSync = require('fs').mkdirSync
 const fs = require('fs')
@@ -257,35 +257,32 @@ exports.webadmin_requests=(req, res) => {
     res.json(final_events);
   });
 };
-
-
-
-
-
-
-exports.webadmin_request_accept = (req, res) =>{
+exports.webadmin_request_accept = (req, res) => {
   const imgid = req.params.id;
-  console.log(imgid)
-  const sql = `select * from dmc_upload WHERE id =${imgid}`
-  connection.query(sql ,(err,result)=>{
-    if(err){
-      console.log(err)
-      res.status(500).json({error:`error in accepting update ${err}`});
+  const sql = 'SELECT * FROM dmc_upload WHERE id = ?';
+  connection.query(sql, [imgid], (err, result) => {
+    if (err) {
+      console.error('Error retrieving data:', err);
+      res.status(500).json({ error: `Error in accepting update: ${err}` });
+      return;
     }
-    if(result.length > 0){
-      console.log(result)
-      connection.query(`UPDATE dmc_upload set admin_approval='accepted' WHERE id=${imgid}`,(uperr,upres)=>{
-        if(uperr){
-          res.status(500).json({error:`error in accepting update ${err}`})
+    console.log(result)
+    if (result.length > 0) {
+      const updateSql = 'UPDATE dmc_upload SET admin_approval = ? WHERE id = ?';
+      const updateValues = ['accepted', imgid];
+      connection.query(updateSql, updateValues, (uperr, upres) => {
+        if (uperr) {
+          console.error('Error updating data:', uperr);
+          res.status(500).json({ error: `Error in accepting update: ${uperr}` });
+          return;
         }
-        res.json({message:"Image Request Accepted Sueccfully"})
-      })
-
+        res.json({ message: 'Image Request Accepted Successfully' });
+      });
+    } else {
+      console.log('No data found');
+      res.status(404).json({ error: 'No data found' });
     }
-    else{
-      console.log("edho eroor")
-    }
-  })
+  });
 }
 exports.webadmin_request_deny = (req, res) =>{
   const imgid = req.params.id;
@@ -304,7 +301,7 @@ exports.webadmin_request_deny = (req, res) =>{
 
     }
   })
-} 
+}
 
 
 
@@ -329,7 +326,7 @@ const bulkstorage = multer.diskStorage({
     return cb(null,`${file.originalname}`)
   }
 })
-exports.bulkupload = multer({storage:bulkstorage}).array('files',10);
+exports.bulkupload = multer({storage:bulkstorage}).array('files',60);
 
 const Create_dir = (event_name) =>{
 
@@ -352,7 +349,7 @@ const Create_dir = (event_name) =>{
       else{
         if(!fs_existsSync(`./storage/dmc/events/${event_name}`)){
           if(fs_mkdirSync(`./storage/dmc/events/${event_name}`)){
-            return(event_name, `folder is CReated Successfully, continue to upload images`)
+            return(event_name, `folder is Created Successfully, continue to upload images`)
             }
             else{
               return("Error in Creating in Folder Cretaion")
@@ -363,13 +360,10 @@ const Create_dir = (event_name) =>{
           
         }
         
-        return(`Storage/dmc/events folder is There`)
       }
       
-      return("Storage/dmc folder is there")
     }
     
-    return("Storage/ folder is there")
   }
 }
 
@@ -442,7 +436,6 @@ exports.webadmin_event_request_accept = (req, res) =>{
       res.status(500).json({error:`error in accepting update ${err}`});
     }
     if(result.length > 0){
-      console.log(result)
       connection.query(`UPDATE event_photos set admin_approval='accepted' WHERE id=${imgid}`,(uperr,upres)=>{
         if(uperr){
           res.status(500).json({error:`error in accepting update ${err}`})
@@ -610,3 +603,45 @@ exports.get_main_events_photos = async (req, res) => {
   }
 };
 
+
+exports.delete_event_photos = (req, res) => {
+  const eventId = req.params.id;
+  const selectSql = `SELECT * FROM event_photos WHERE id = ?`;
+  const deleteSql = `DELETE FROM event_photos WHERE id = ?`;
+
+  connection.query(selectSql, [eventId], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error('Error selecting event:', selectErr);
+      res.status(500).json({ error: 'Error selecting event' });
+      return;
+    }
+
+    if (selectResult.length === 0) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const eventName = selectResult[0].event_name;
+    const folderPath = path.join('./storage/dmc/events', eventName);
+
+    connection.query(deleteSql, [eventId], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error('Error deleting event:', deleteErr);
+        res.status(500).json({ error: 'Error deleting event' });
+        return;
+      }
+
+      // Delete the folder and its contents
+      fs.rm(folderPath, { recursive: true, force: true }, (rmErr) => {
+        if (rmErr) {
+          console.error('Error deleting event folder:', rmErr);
+          res.status(500).json({ error: 'Error deleting event folder' });
+          return;
+        }
+
+        console.log('Event deleted successfully');
+        res.json({ message: 'Event deleted successfully', result: deleteResult });
+      });
+    });
+  });
+};

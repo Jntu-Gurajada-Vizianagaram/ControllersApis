@@ -116,7 +116,7 @@ exports.update_hod = async (req, res) => {
   try {
     // If a new password is provided, hash it before updating
     let hashedPassword = password;
-    if (password) {
+    if (password && !password.startsWith('$2b$')) {
       hashedPassword = await bcrypt.hash(password, saltRounds);
     }
 
