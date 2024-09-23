@@ -1,12 +1,12 @@
 const multer = require('multer');
 const connection = require('../config');
 const con = require('../config');
-const api_ip ='http://localhost:8888';
+//const api_ip ='http://localhost:8888';
 
 //const { server_ip: api_ip } = require('../api.json');
 
 
-//const api_ip = 'https://api.jntugv.edu.in'
+const api_ip = 'https://api.jntugv.edu.in'
 const fs_existsSync = require('fs').existsSync
 const fs_mkdirSync = require('fs').mkdirSync
 const fs = require('fs')
@@ -266,7 +266,7 @@ exports.webadmin_request_accept = (req, res) => {
       res.status(500).json({ error: `Error in accepting update: ${err}` });
       return;
     }
-    console.log(result)
+   // console.log(result)
     if (result.length > 0) {
       const updateSql = 'UPDATE dmc_upload SET admin_approval = ? WHERE id = ?';
       const updateValues = ['accepted', imgid];
@@ -318,8 +318,8 @@ exports.webadmin_request_deny = (req, res) =>{
 const bulkstorage = multer.diskStorage({
   destination: (req, file, cb )=>{
     const event_name = req.body.event_name;
-    console.log(event_name)
-    Create_dir(event_name)
+    //console.log(event_name)
+    //Create_dir(event_name)
     return cb(null,`./storage/dmc/events/${event_name}`)
   },
   filename: (req, file, cb)=>{
@@ -369,7 +369,7 @@ const Create_dir = (event_name) =>{
 
 
 exports.add_event_photos = (req,res) =>{
-  console.log( "Bulk Image Center")
+ // console.log( "Bulk Image Center")
   const events_details = req.body
   const id=0;
   try {
