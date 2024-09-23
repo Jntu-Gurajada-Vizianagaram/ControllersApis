@@ -1,12 +1,12 @@
 const multer = require('multer');
 const connection = require('../config');
 const con = require('../config');
-const api_ip ='http://localhost:8888';
+//const api_ip ='http://localhost:8888';
 
 //const { server_ip: api_ip } = require('../api.json');
 
 
-//const api_ip = 'https://api.jntugv.edu.in'
+const api_ip = 'https://api.jntugv.edu.in'
 const fs_existsSync = require('fs').existsSync
 const fs_mkdirSync = require('fs').mkdirSync
 const fs = require('fs')
