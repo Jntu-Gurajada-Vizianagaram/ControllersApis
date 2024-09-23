@@ -1,12 +1,14 @@
 const multer = require('multer');
 const connection = require('../config');
 const con = require('../config');
-//const api_ip ='http://localhost:8888';
+const api_ip ='http://localhost:8888';
+
+//const { server_ip: api_ip } = require('../api.json');
 
 //const { server_ip: api_ip } = require('../api.json');
 
 
-const api_ip = 'https://api.jntugv.edu.in'
+//const api_ip = 'https://api.jntugv.edu.in'
 const fs_existsSync = require('fs').existsSync
 const fs_mkdirSync = require('fs').mkdirSync
 const fs = require('fs')
@@ -28,7 +30,7 @@ exports.insert_img =  (req, res) => {
 
   const  dmcupload  = req.body;
   const  file  = req.file
-  console.log(dmcupload)
+  //console.log(dmcupload)
   console.log("File"+file.originalname)
   const int = 0;
   const sql = 'INSERT INTO dmc_upload (id, date, title,  file_path, description, submitted, admin_approval, carousel_scrolling, gallery_scrolling) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
@@ -258,6 +260,7 @@ exports.webadmin_requests=(req, res) => {
   });
 };
 exports.webadmin_request_accept = (req, res) => {
+exports.webadmin_request_accept = (req, res) => {
   const imgid = req.params.id;
   const sql = 'SELECT * FROM dmc_upload WHERE id = ?';
   connection.query(sql, [imgid], (err, result) => {
@@ -281,7 +284,13 @@ exports.webadmin_request_accept = (req, res) => {
     } else {
       console.log('No data found');
       res.status(404).json({ error: 'No data found' });
+        res.json({ message: 'Image Request Accepted Successfully' });
+      });
+    } else {
+      console.log('No data found');
+      res.status(404).json({ error: 'No data found' });
     }
+  });
   });
 }
 exports.webadmin_request_deny = (req, res) =>{
@@ -301,6 +310,7 @@ exports.webadmin_request_deny = (req, res) =>{
 
     }
   })
+}
 }
 
 
@@ -327,6 +337,7 @@ const bulkstorage = multer.diskStorage({
   }
 })
 exports.bulkupload = multer({storage:bulkstorage}).array('files',60);
+exports.bulkupload = multer({storage:bulkstorage}).array('files',60);
 
 const Create_dir = (event_name) =>{
 
@@ -349,6 +360,7 @@ const Create_dir = (event_name) =>{
       else{
         if(!fs_existsSync(`./storage/dmc/events/${event_name}`)){
           if(fs_mkdirSync(`./storage/dmc/events/${event_name}`)){
+            return(event_name, `folder is Created Successfully, continue to upload images`)
             return(event_name, `folder is Created Successfully, continue to upload images`)
             }
             else{
@@ -603,6 +615,48 @@ exports.get_main_events_photos = async (req, res) => {
   }
 };
 
+
+exports.delete_event_photos = (req, res) => {
+  const eventId = req.params.id;
+  const selectSql = `SELECT * FROM event_photos WHERE id = ?`;
+  const deleteSql = `DELETE FROM event_photos WHERE id = ?`;
+
+  connection.query(selectSql, [eventId], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error('Error selecting event:', selectErr);
+      res.status(500).json({ error: 'Error selecting event' });
+      return;
+    }
+
+    if (selectResult.length === 0) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const eventName = selectResult[0].event_name;
+    const folderPath = path.join('./storage/dmc/events', eventName);
+
+    connection.query(deleteSql, [eventId], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error('Error deleting event:', deleteErr);
+        res.status(500).json({ error: 'Error deleting event' });
+        return;
+      }
+
+      // Delete the folder and its contents
+      fs.rm(folderPath, { recursive: true, force: true }, (rmErr) => {
+        if (rmErr) {
+          console.error('Error deleting event folder:', rmErr);
+          res.status(500).json({ error: 'Error deleting event folder' });
+          return;
+        }
+
+        console.log('Event deleted successfully');
+        res.json({ message: 'Event deleted successfully', result: deleteResult });
+      });
+    });
+  });
+};
 
 exports.delete_event_photos = (req, res) => {
   const eventId = req.params.id;
