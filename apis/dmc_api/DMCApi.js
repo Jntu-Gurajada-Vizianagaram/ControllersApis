@@ -1,14 +1,10 @@
 const multer = require('multer');
 const connection = require('../config');
 const con = require('../config');
-const api_ip ='http://localhost:8888';
-
+//const api_ip ='http://localhost:8888';
 //const { server_ip: api_ip } = require('../api.json');
 
-//const { server_ip: api_ip } = require('../api.json');
-
-
-//const api_ip = 'https://api.jntugv.edu.in'
+const api_ip = 'https://api.jntugv.edu.in'
 const fs_existsSync = require('fs').existsSync
 const fs_mkdirSync = require('fs').mkdirSync
 const fs = require('fs')
@@ -31,7 +27,7 @@ exports.insert_img =  (req, res) => {
   const  dmcupload  = req.body;
   const  file  = req.file
   //console.log(dmcupload)
-  console.log("File"+file.originalname)
+  //console.log("File"+file.originalname)
   const int = 0;
   const sql = 'INSERT INTO dmc_upload (id, date, title,  file_path, description, submitted, admin_approval, carousel_scrolling, gallery_scrolling) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
   const values = [int, dmcupload.date, dmcupload.title,  file.originalname , dmcupload.description, dmcupload.submitted, dmcupload.admin_approval, dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
@@ -80,13 +76,13 @@ const del = `DELETE FROM dmc_upload WHERE id = ${id}`;
               console.error('Error removing file:', err);
               return;
             }
-            console.log('File removed successfully');
+           // console.log('File removed successfully');
           });
         });
       }
     });
 
-    console.log('Data deleted successfully');
+    //console.log('Data deleted successfully');
     res.json({ message: 'Data deleted successfully',result});
   });
   
