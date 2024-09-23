@@ -14,12 +14,12 @@ router.put('/update-event/:id',updates.Upload,updates.update_event)
 
 //---Request APIS---//
 router.get('/update-requests',updates.update_requests); //api for only admin update events added by updater
-router.get('/update-accept-request/:id',updates.update_request_accept); //api for only admin to accept events added by updater
-router.get('/update-deny-request/:id',updates.update_request_deny); //api for only admin to deny events added by updater
+router.put('/update-accept-request/:id',updates.update_request_accept); //api for only admin to accept events added by updater
+router.put('/update-deny-request/:id',updates.update_request_deny); //api for only admin to deny events added by updater
 
 // ----- Apis for Frontend----------//
 
-router.get('/allnotifications',updates.get_notifiactions); //ALL notifiactions  
+router.get('/allnotifications',updates.get_notifiactions); //ALL notifiactions
 router.get('/scrollingnotifications',updates.get_scrolling_notifiactions);
 
 

@@ -19,6 +19,7 @@ router.get('/add-to-carousel/:imgid',webadmin.add_to_carousel);
 //------API for BULK Images ----//
 router.post('/add-event-photos',webadmin.bulkupload,webadmin.add_event_photos)
 router.get('/get-event-photos',webadmin.get_events_photos)
+router.delete('/delete-event-photos/:id', webadmin.delete_event_photos);
 //------Event Photos---Request APIS---//
 router.get('/webadmin-event-requests',webadmin.webadmin_event_requests); //api for only admin webadmin events added by webadminr
 router.get('/webadmin-event-accept-request/:id',webadmin.webadmin_event_request_accept); //api for only admin to accept events added by webadminr

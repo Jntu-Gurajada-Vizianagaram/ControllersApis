@@ -2,3 +2,4 @@
 /storage/notifications/
 .env
 /apis/config.sql
+/storage
