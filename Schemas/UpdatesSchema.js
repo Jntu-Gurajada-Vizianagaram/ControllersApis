@@ -18,13 +18,13 @@ exports.notification_updates_table = () => {
          con.query(updates_sql,(err,result)=>{
         if(err){
             console.log(err)
-            console.log("Notification Updates Table not Created")
+            console.log("Notifications Table not Created")
         }else{
             // console.log(result)
         }
       });
     } catch (err) {
-      console.log(err + "Server Unreachable");
+      console.log("Server Unreachable");
     }
   };
   

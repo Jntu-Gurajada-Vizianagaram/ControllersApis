@@ -14,13 +14,13 @@ exports.event_photos_table = () => {
          con.query(upload_sql,(err,result)=>{
         if(err){
             console.log(err)
-            console.log("Event Photos Table not Created")
+            console.log("Events Table not Created")
         }else{
             // console.log(result)
         }
       });
     } catch (err) {
-      console.log(err + "Server Unreachable");
+      console.log("Server Unreachable");
     }
   };
   

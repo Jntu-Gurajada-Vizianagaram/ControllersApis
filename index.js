@@ -29,9 +29,9 @@ const alloweddomains = [
 // CORS Configuration
 app.use(cors({
   origin: alloweddomains,
-  methods: ["GET", "POST", "DELETE", "PUT", "OPTIONS"], // Ensure OPTIONS is included
+  methods: ["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"],
   credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"], // Specify allowed headers
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 // Handle preflight requests for DELETE and other methods
@@ -57,6 +57,7 @@ app.use(
 app.use("/media", express.static("./storage/notifications"));
 app.use("/dmc", express.static("./storage/dmc"));
 app.use("/events", express.static("./storage/dmc/events"));
+app.use("/gallery/image", express.static("./storage/gallery"));
 app.use("/exam-files", express.static('./'));
 
 // Route Handling

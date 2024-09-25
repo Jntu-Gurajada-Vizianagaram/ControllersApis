@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 
 
 exports.send_grievance = (req,res)=>{
-    console.log("entered into MAILING")
+    //console.log("entered into MAILING")
     try {        
         const {rollno,email,name,phno,adhaarno,collegename,category,msg,date} = req.body;
         const attach =req.file ? {path:req.file.path} : null;
