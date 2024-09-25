@@ -1,147 +1,30 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const con = require('../../apis/config.js');
-// const ips = require('../../apis/api.json');
-
 const router = express.Router();
+const galleryApi = require('../../apis/gallery_api/galleryApi');
+const multer = require('multer');
 
-const server_ip = "https://api.jntugv.edu.in";
-
+// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../../storage/gallery');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
+    cb(null, './storage/gallery/');
   },
   filename: (req, file, cb) => {
-    // Append timestamp to prevent filename duplication
-    const timestamp = Date.now();
-    const fileExt = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, fileExt);
-    cb(null, `${timestamp}-${baseName}${fileExt}`);
+    cb(null, `${Date.now()}-${file.originalname}`);
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 // Route to upload multiple gallery images and save each image's data to the database
-router.post('/add-gallery-images', upload.array('files'), async (req, res) => {
-  const { event_name, uploaded_date, description, admin_approval, added_by } = req.body;
-  const files = req.files;
-
-  const galleryImages = files.map(file => {
-    const filePath = path.join('../../storage/gallery', file.filename);
-
-    const imagelink = `${server_ip}/api/gallery/image/${file.filename}`;
-    return {
-      imagelink,
-      description,
-      uploaded_date,
-      event_name,
-      added_by
-    };
-  });
-
-  const insertImagesQuery = 'INSERT INTO galleryimages SET ?';
-  const checkImageExistsQuery = 'SELECT * FROM galleryimages WHERE imagelink = ?';
-
-  try {
-    await Promise.all(galleryImages.map(async (imageData) => {
-      // Check if image already exists in the database
-      const existingImage = await new Promise((resolve, reject) => {
-        con.query(checkImageExistsQuery, [imageData.imagelink], (err, result) => {
-          if (err) return reject(err);
-          resolve(result);
-        });
-      });
-
-      if (existingImage.length === 0) {
-        // Insert image if it doesn't already exist
-        await new Promise((resolve, reject) => {
-          con.query(insertImagesQuery, imageData, (err, result) => {
-            if (err) return reject(err);
-            resolve(result);
-          });
-        });
-      }
-    }));
-    res.status(200).json({ message: 'Files uploaded and data saved successfully' });
-  } catch (err) {
-    res.status(500).json({ error: err });
-  }
-});
+router.post('/add-gallery-images', upload.array('files'), galleryApi.addGalleryImages);
 
 // Route to get all gallery images
-router.get('/all-gallery-images', (req, res) => {
-  const getAllImagesQuery = 'SELECT * FROM galleryimages';
-
-  con.query(getAllImagesQuery, (err, results) => {
-    if (err) return res.status(500).json({ error: err });
-    res.status(200).json(results);
-  });
-});
+router.get('/all-gallery-images', galleryApi.getAllGalleryImages);
 
 // Route to serve a specific image file by filename
-router.get('/image/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(__dirname, '../../storage/gallery', filename);
-
-  fs.access(filePath, fs.constants.F_OK, (err) => {
-    if (err) {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-    res.sendFile(filePath);
-  });
-});
+router.get('/image/:filename', galleryApi.getImageByFilename);
 
 // Route to delete a specific gallery image
-router.delete('/delete-gallery-image/:id', (req, res) => {
-  const id = req.params.id;
-
-  // Query to get the file path from the database using the image ID
-  const getImagePathQuery = 'SELECT imagelink FROM galleryimages WHERE id = ?';
-
-  con.query(getImagePathQuery, [id], (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to retrieve image data' });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'Image not found in database' });
-    }
-
-    // Extract the file path from the database result
-    const imagelink = results[0].imagelink;
-    const filename = path.basename(imagelink); // Extract the filename from the imagelink
-    const filepath = path.join(__dirname, '../../storage/gallery', filename);
-
-    // Check if the file exists before attempting to delete
-    fs.access(filepath, fs.constants.F_OK, (err) => {
-      if (err) {
-        return res.status(404).json({ error: 'File not found on server' });
-      }
-
-      // Delete the file from the filesystem
-      fs.unlink(filepath, (err) => {
-        if (err) {
-          return res.status(500).json({ error: 'Failed to delete image from server' });
-        }
-
-        // Delete the record from the database
-        con.query('DELETE FROM galleryimages WHERE id = ?', [id], (err) => {
-          if (err) {
-            return res.status(500).json({ error: 'Failed to delete image from database' });
-          }
-
-          res.status(200).json({ message: 'Image deleted successfully' });
-        });
-      });
-    });
-  });
-});
+router.delete('/delete-gallery-image/:id', galleryApi.deleteGalleryImage);
 
 module.exports = router;

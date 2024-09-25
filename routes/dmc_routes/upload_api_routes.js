@@ -14,12 +14,13 @@ router.get('/carousel-images-preview',webadmin.carousel_imgs_preview);
 router.get('/carousel-images',webadmin.carousel_imgs);
 router.get('/remove-from-carousel/:imgid',webadmin.remove_from_carousel);
 router.get('/add-to-carousel/:imgid',webadmin.add_to_carousel);
-// router.patch('/update-event',router.update_event)
+router.put('/update-carousel-image/:id',webadmin.dmcUpload,webadmin.update_carousel_image);
 
 //------API for BULK Images ----//
 router.post('/add-event-photos',webadmin.bulkupload,webadmin.add_event_photos)
 router.get('/get-event-photos',webadmin.get_events_photos)
 router.delete('/delete-event-photos/:id', webadmin.delete_event_photos);
+//router.patch('/update-event-photos/:id',webadmin.update_event_photos);
 //------Event Photos---Request APIS---//
 router.get('/webadmin-event-requests',webadmin.webadmin_event_requests); //api for only admin webadmin events added by webadminr
 router.get('/webadmin-event-accept-request/:id',webadmin.webadmin_event_request_accept); //api for only admin to accept events added by webadminr

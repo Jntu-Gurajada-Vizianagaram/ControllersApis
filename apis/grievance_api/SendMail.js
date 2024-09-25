@@ -61,11 +61,11 @@ exports.send = (req,res)=>{
 
         transporter.sendMail(mailoptions,(error,info)=>{
             if(error){
-                console.log("Sending Error"+error)
+//console.log("Sending Error"+error)
                 res.status(500).send('Email Sending Failed!')
             }
             else{
-                console.log("SENT"+info.response)
+                //console.log("SENT"+info.response)
                 res.json({success:true,data:{name,email,msg}})
             }
         })

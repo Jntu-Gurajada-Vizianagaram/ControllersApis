@@ -14,7 +14,7 @@ exports.dmc_upload_table = () => {
             gallery_scrolling varchar(50) NOT NULL);`;
          con.query(upload_sql,(err,result)=>{
         if(err){
-            console.log(err)
+            //console.log(err)
             console.log("DMC Table not Created")
         }else{
             // console.log(result)
