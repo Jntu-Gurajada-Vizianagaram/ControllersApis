@@ -43,11 +43,11 @@ exports.getAllGalleryImages = (req, res) => {
     }
 
     const img_list = results.map(img => {
-      const imagelink = `${api_ip}/gallery/image/${img.filepath}`;
+      const img_link = `${api_ip}/gallery/image/${img.filepath}`;
 
       return {
         ...img,
-        imglink: img_link
+        imagelink: img_link
       };
     });
 
