@@ -43,11 +43,16 @@ exports.getAllGalleryImages = (req, res) => {
     }
 
     const img_list = results.map(img => {
+      // Generate the image link
       const img_link = `${api_ip}/gallery/image/${img.filepath}`;
+      
+      // Slice the uploaded_date to format it as 'YYYY-MM-DD'
+      const uploadedDate = new Date(img.uploaded_date).toISOString().slice(0, 10);
 
       return {
         ...img,
-        imagelink: img_link
+        imagelink: img_link,
+        uploaded_date: uploadedDate  // Replace the original date with the formatted one
       };
     });
 
