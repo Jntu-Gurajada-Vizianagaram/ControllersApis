@@ -17,7 +17,7 @@ exports.addGalleryImages = (req, res) => {
   const values = files.map(file => [
     file.filename,
     galleryUpload.description,
-    new Date(),
+    new Date().toISOString().slice(0, 10),
     galleryUpload.event_name,
     galleryUpload.added_by
   ]);
