@@ -414,14 +414,15 @@ const Create_dir = (event_name) => {
 
 exports.add_event_photos = (req, res) => {
   const events_details = req.body;
+  const files = req.files;
+
   try {
     Create_dir(events_details.event_name);
-    const folderpath = `./storage/dmc/events/${events_details.event_name}`;
-    const sql = `INSERT INTO event_photos (uploaded_date, event_name, folderpath, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO event_photos (uploaded_date, event_name,folderpath, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?, ?)`;
     const values = [
       events_details.uploaded_date,
       events_details.event_name,
-      folderpath,
+      `./storage/dmc/events/${events_details.event_name}`,
       events_details.description,
       events_details.added_by,
       events_details.admin_approval,
@@ -433,7 +434,34 @@ exports.add_event_photos = (req, res) => {
         console.error('Error inserting event photos:', err);
         return res.status(500).json({ error: 'Error uploading event photos' });
       }
-      res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
+
+      // Check if files were uploaded
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+      }
+
+      // Process uploaded files
+      const filePromises = files.map(file => {
+        return new Promise((resolve, reject) => {
+          const filePath = path.join(folderpath, file.originalname);
+          fs.writeFile(filePath, file.buffer, (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        });
+      });
+
+      Promise.all(filePromises)
+        .then(() => {
+          res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
+        })
+        .catch((error) => {
+          console.error('Error saving files:', error);
+          res.status(500).json({ error: 'Error saving uploaded files' });
+        });
     });
   } catch (error) {
     console.error('Error in add_event_photos:', error);
@@ -466,7 +494,7 @@ const event_photos_links = async (event_name) => {
 exports.get_events_photos = async (req, res) => {
   try {
     const sql = "SELECT * FROM event_photos ORDER BY uploaded_date DESC";
-    con.query(sql, async (err, result) => {
+    connection.query(sql, async (err, result) => {
       if (err) {
         res.status(400).json({ message: err });
       } else {
@@ -492,7 +520,7 @@ exports.get_events_photos = async (req, res) => {
 exports.get_main_events_photos = async (req, res) => {
   try {
     const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY uploaded_date DESC";
-    con.query(sql, async (err, result) => {
+    connection.query(sql, async (err, result) => {
       if (err) {
         res.status(400).json({ message: err });
       } else {
@@ -544,12 +572,11 @@ exports.delete_event_photos = (req, res) => {
 
       fs.rm(folderPath, { recursive: true, force: true }, (rmErr) => {
         if (rmErr) {
-         // console.error('Error deleting event folder:', rmErr);
+          console.error('Error deleting event folder:', rmErr);
           res.status(500).json({ error: 'Error deleting event folder' });
           return;
         }
 
-        alert('Event deleted successfully');
         res.json({ message: 'Event deleted successfully', result: deleteResult });
       });
     });
