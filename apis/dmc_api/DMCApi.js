@@ -418,11 +418,12 @@ exports.add_event_photos = (req, res) => {
 
   try {
     Create_dir(events_details.event_name);
+    const folderpath = `./storage/dmc/events/${events_details.event_name}`;
     const sql = `INSERT INTO event_photos (uploaded_date, event_name,folderpath, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?, ?)`;
     const values = [
       events_details.uploaded_date,
       events_details.event_name,
-      `./storage/dmc/events/${events_details.event_name}`,
+      folderpath,
       events_details.description,
       events_details.added_by,
       events_details.admin_approval,
