@@ -401,13 +401,13 @@ const bulkstorage = multer.diskStorage({
 });
 
 exports.bulkupload = multer({ storage: bulkstorage }).array('files', 60);
-
 const Create_dir = (event_name) => {
-  const dirs = ['./storage/', './storage/dmc/', './storage/dmc/events/', `./storage/dmc/events/${event_name}`];
-  for (const dir of dirs) {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+  const dir = `./storage/dmc/events/${event_name}`;
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`Created directory: ${dir}`);
+  } else {
+    console.log(`Directory already exists: ${dir}`);
   }
   return `${event_name} folder is ready, continue to upload images`;
 };
