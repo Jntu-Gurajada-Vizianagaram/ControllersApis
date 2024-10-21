@@ -406,8 +406,7 @@ const Create_dir = (event_name) => {
   const dirs = ['./storage/', './storage/dmc/', './storage/dmc/events/', `./storage/dmc/events/${event_name}`];
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir);
-      //console.log(`${dir} folder is created`);
+      fs.mkdirSync(dir, { recursive: true });
     }
   }
   return `${event_name} folder is ready, continue to upload images`;
@@ -415,18 +414,30 @@ const Create_dir = (event_name) => {
 
 exports.add_event_photos = (req, res) => {
   const events_details = req.body;
-  const id = 0;
   try {
-    const sql = `INSERT INTO event_photos (id, uploaded_date, event_name, folderpath, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [id, events_details.uploaded_date, events_details.event_name, "", events_details.description, events_details.added_by, events_details.admin_approval, events_details.main_page];
-    con.query(sql, values, (err, result) => {
+    Create_dir(events_details.event_name);
+    const folderpath = `./storage/dmc/events/${events_details.event_name}`;
+    const sql = `INSERT INTO event_photos (uploaded_date, event_name, folderpath, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const values = [
+      events_details.uploaded_date,
+      events_details.event_name,
+      folderpath,
+      events_details.description,
+      events_details.added_by,
+      events_details.admin_approval,
+      events_details.main_page
+    ];
+    
+    connection.query(sql, values, (err, result) => {
       if (err) {
-        console.log(err);
+        console.error('Error inserting event photos:', err);
+        return res.status(500).json({ error: 'Error uploading event photos' });
       }
-      res.json({ message: `${req.body.event_name} Photos uploaded Successfully` });
+      res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
     });
   } catch (error) {
-    res.status(400).json({ message: error });
+    console.error('Error in add_event_photos:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -454,7 +465,7 @@ const event_photos_links = async (event_name) => {
 
 exports.get_events_photos = async (req, res) => {
   try {
-    const sql = "SELECT * FROM event_photos ORDER BY id DESC";
+    const sql = "SELECT * FROM event_photos ORDER BY uploaded_date DESC";
     con.query(sql, async (err, result) => {
       if (err) {
         res.status(400).json({ message: err });
@@ -480,7 +491,7 @@ exports.get_events_photos = async (req, res) => {
 
 exports.get_main_events_photos = async (req, res) => {
   try {
-    const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY id DESC";
+    const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY uploaded_date DESC";
     con.query(sql, async (err, result) => {
       if (err) {
         res.status(400).json({ message: err });
