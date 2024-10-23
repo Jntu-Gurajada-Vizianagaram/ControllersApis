@@ -324,6 +324,184 @@ exports.webadmin_request_deny = (req, res) => {
   });
 };
 
+const bulkstorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const event_name = req.body.event_name;
+    const folderpath = path.join(__dirname, '..', '..', 'storage', 'dmc', 'events', event_name);
+    if (!fs.existsSync(folderpath)) {
+      fs.mkdirSync(folderpath, { recursive: true });
+      console.log(`Created directory: ${folderpath}`);
+    }
+    return cb(null, folderpath);
+  },
+  filename: (req, file, cb) => {
+    return cb(null, `${file.originalname}`);
+  }
+});
+
+exports.bulkupload = multer({ storage: bulkstorage }).array('files', 60);
+
+exports.add_event_photos = async (req, res) => {
+  const events_details = req.body;
+  const files = req.files;
+
+  try {
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const folderpath = path.join(__dirname, '..', '..', 'storage', 'dmc', 'events', events_details.event_name);
+    const sql = `INSERT INTO event_photos (uploaded_date, event_name, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?)`;
+    const values = [
+      events_details.uploaded_date,
+      events_details.event_name,
+      events_details.description,
+      events_details.added_by,
+      events_details.admin_approval,
+      events_details.main_page
+    ];
+    
+    const [result] = await connection.promise().query(sql, values);
+
+    const filePromises = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const filePath = path.join(folderpath, file.filename);
+        fs.rename(file.path, filePath, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+    });
+
+    await Promise.all(filePromises);
+    res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
+  } catch (error) {
+    console.log(error);
+    console.log(error.message);
+    console.error('Error in add_event_photos:', error);
+    res.status(500).json({ error: 'Failed to upload photos' });
+  }
+};
+
+const event_photos_links = async (event_name) => {
+  const folderpath = path.join(`./storage/dmc/events/${event_name}`);
+  try {
+    const files = await fs.promises.readdir(folderpath);
+    const filesnames = files.filter((file) => {
+      const filepath = path.join(folderpath, file);
+      const stats = fs.statSync(filepath);
+      return stats.isFile();
+    });
+
+    const filesOnly = filesnames.map((filename) => {
+      const filelink = `${api_ip}/events/${event_name}/${filename}`;
+      return filelink;
+    });
+
+    return filesOnly;
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+};
+
+exports.get_events_photos = async (req, res) => {
+  try {
+    const sql = "SELECT * FROM event_photos ORDER BY uploaded_date";
+    connection.query(sql, async (err, result) => {
+      if (err) {
+        res.status(400).json({ message: err });
+      } else {
+        const events = [];
+        for (const eve of result) {
+          try {
+            const photos = await event_photos_links(eve.event_name);
+            events.push({ ...eve, thumbnail: photos[5], event_photos: photos });
+          } catch (error) {
+            console.error(`Error fetching photos for event ${eve.event_name}:`, error);
+            events.push({ ...eve, event_photos: [] });
+          }
+        }
+        res.status(200).json({ message: "All Events Photos and their Links", events });
+      }
+    });
+  } catch (error) {
+    console.log(error.message);
+    console.error("Error fetching events:", error);
+    res.status(500).json({ error: 'Server is Busy in fetching events' });
+  }
+};
+
+exports.get_main_events_photos = async (req, res) => {
+  try {
+    const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY uploaded_date DESC";
+    connection.query(sql, async (err, result) => {
+      if (err) {
+        res.status(400).json({ message: err });
+      } else {
+        const events = [];
+        for (const eve of result) {
+          try {
+            const photos = await event_photos_links(eve.event_name);
+            events.push({ ...eve, thumbnail: photos[5], event_photos: photos });
+          } catch (error) {
+            console.error(`Error fetching photos for event ${eve.event_name}:`, error);
+            events.push({ ...eve, event_photos: [] });
+          }
+        }
+        res.json({ message: "All Events Photos and their Links", events });
+      }
+    });
+  } catch (error) {
+    //console.error("Error fetching events:", error);
+    res.status(500).json({ error: 'Server is Busy in fetching events' });
+  }
+};
+
+exports.delete_event_photos = (req, res) => {
+  const eventId = req.params.id;
+  const selectSql = `SELECT * FROM event_photos WHERE id = ?`;
+  const deleteSql = `DELETE FROM event_photos WHERE id = ?`;
+
+  connection.query(selectSql, [eventId], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error('Error selecting event:', selectErr);
+      res.status(500).json({ error: 'Error selecting event' });
+      return;
+    }
+
+    if (selectResult.length === 0) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const eventName = selectResult[0].event_name;
+    const folderPath = path.join('./storage/dmc/events', eventName);
+
+    connection.query(deleteSql, [eventId], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error('Error deleting event:', deleteErr);
+        res.status(500).json({ error: 'Error deleting event' });
+        return;
+      }
+
+      fs.rm(folderPath, { recursive: true, force: true }, (rmErr) => {
+        if (rmErr) {
+          console.error('Error deleting event folder:', rmErr);
+          res.status(500).json({ error: 'Error deleting event folder' });
+          return;
+        }
+
+        res.json({ message: 'Event deleted successfully', result: deleteResult });
+      });
+    });
+  });
+};
+
+
 exports.webadmin_event_requests = (req, res) => {
   const sql = "SELECT * FROM event_photos WHERE admin_approval='pending' AND main_page='yes' ORDER BY id DESC";
 
@@ -336,7 +514,7 @@ exports.webadmin_event_requests = (req, res) => {
         for (const eve of result) {
           try {
             const photos = await event_photos_links(eve.event_name);
-            events.push({ ...eve, thumbnail: photos[0], event_photos: photos });
+            events.push({ ...eve, thumbnail: photos[5], event_photos: photos });
           } catch (error) {
             console.error(`Error fetching photos for event ${eve.event_name}:`, error);
             events.push({ ...eve, event_photos: [] });
@@ -390,196 +568,9 @@ exports.webadmin_event_request_deny = (req, res) => {
   });
 };
 
-const bulkstorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const event_name = req.body.event_name;
-    return cb(null, `./storage/dmc/events/${event_name}`);
-  },
-  filename: (req, file, cb) => {
-    return cb(null, `${file.originalname}`);
-  }
-});
-
-exports.bulkupload = multer({ storage: bulkstorage }).array('files', 60);
-const Create_dir = (event_name) => {
-  const dir = `./storage/dmc/events/${event_name}`;
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`Created directory: ${dir}`);
-  } else {
-    console.log(`Directory already exists: ${dir}`);
-  }
-  return `${event_name} folder is ready, continue to upload images`;
+exports.get_event_photos = async (req, res) => {
+  const event_name = req.params.event_name;
+  const photos = await event_photos_links(event_name);
+  res.json(photos);
 };
 
-exports.add_event_photos = (req, res) => {
-  const events_details = req.body;
-  const files = req.files;
-
-  try {
-    Create_dir(events_details.event_name);
-    const folderpath = `./storage/dmc/events/${events_details.event_name}`;
-    const sql = `INSERT INTO event_photos (uploaded_date, event_name,folderpath, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-    const values = [
-      events_details.uploaded_date,
-      events_details.event_name,
-      folderpath,
-      events_details.description,
-      events_details.added_by,
-      events_details.admin_approval,
-      events_details.main_page
-    ];
-    
-    connection.query(sql, values, (err, result) => {
-      if (err) {
-        console.error('Error inserting event photos:', err);
-        return res.status(500).json({ error: 'Error uploading event photos' });
-      }
-
-      // Check if files were uploaded
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: 'No files uploaded' });
-      }
-
-      // Process uploaded files
-      const filePromises = files.map(file => {
-        return new Promise((resolve, reject) => {
-          const filePath = path.join(folderpath, file.originalname);
-          fs.writeFile(filePath, file.buffer, (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        });
-      });
-
-      Promise.all(filePromises)
-        .then(() => {
-          res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
-        })
-        .catch((error) => {
-          console.error('Error saving files:', error);
-          res.status(500).json({ error: 'Error saving uploaded files' });
-        });
-    });
-  } catch (error) {
-    console.error('Error in add_event_photos:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-const event_photos_links = async (event_name) => {
-  const folderpath = path.join(`./storage/dmc/events/${event_name}`);
-  try {
-    const files = await fs.promises.readdir(folderpath);
-    const filesnames = files.filter((file) => {
-      const filepath = path.join(folderpath, file);
-      const stats = fs.statSync(filepath);
-      return stats.isFile();
-    });
-
-    const filesOnly = filesnames.map((filename) => {
-      const filelink = `${api_ip}/events/${event_name}/${filename}`;
-      return filelink;
-    });
-
-    return filesOnly;
-  } catch (err) {
-    console.error(err);
-    throw err;
-  }
-};
-
-exports.get_events_photos = async (req, res) => {
-  try {
-    const sql = "SELECT * FROM event_photos ORDER BY uploaded_date DESC";
-    connection.query(sql, async (err, result) => {
-      if (err) {
-        res.status(400).json({ message: err });
-      } else {
-        const events = [];
-        for (const eve of result) {
-          try {
-            const photos = await event_photos_links(eve.event_name);
-            events.push({ ...eve, thumbnail: photos[0], event_photos: photos });
-          } catch (error) {
-            console.error(`Error fetching photos for event ${eve.event_name}:`, error);
-            events.push({ ...eve, event_photos: [] });
-          }
-        }
-        res.json({ message: "All Events Photos and their Links", events });
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching events:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-exports.get_main_events_photos = async (req, res) => {
-  try {
-    const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY uploaded_date DESC";
-    connection.query(sql, async (err, result) => {
-      if (err) {
-        res.status(400).json({ message: err });
-      } else {
-        const events = [];
-        for (const eve of result) {
-          try {
-            const photos = await event_photos_links(eve.event_name);
-            events.push({ ...eve, thumbnail: photos[0], event_photos: photos });
-          } catch (error) {
-            console.error(`Error fetching photos for event ${eve.event_name}:`, error);
-            events.push({ ...eve, event_photos: [] });
-          }
-        }
-        res.json({ message: "All Events Photos and their Links", events });
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching events:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-exports.delete_event_photos = (req, res) => {
-  const eventId = req.params.id;
-  const selectSql = `SELECT * FROM event_photos WHERE id = ?`;
-  const deleteSql = `DELETE FROM event_photos WHERE id = ?`;
-
-  connection.query(selectSql, [eventId], (selectErr, selectResult) => {
-    if (selectErr) {
-      console.error('Error selecting event:', selectErr);
-      res.status(500).json({ error: 'Error selecting event' });
-      return;
-    }
-
-    if (selectResult.length === 0) {
-      res.status(404).json({ error: 'Event not found' });
-      return;
-    }
-
-    const eventName = selectResult[0].event_name;
-    const folderPath = path.join('./storage/dmc/events', eventName);
-
-    connection.query(deleteSql, [eventId], (deleteErr, deleteResult) => {
-      if (deleteErr) {
-        console.error('Error deleting event:', deleteErr);
-        res.status(500).json({ error: 'Error deleting event' });
-        return;
-      }
-
-      fs.rm(folderPath, { recursive: true, force: true }, (rmErr) => {
-        if (rmErr) {
-          console.error('Error deleting event folder:', rmErr);
-          res.status(500).json({ error: 'Error deleting event folder' });
-          return;
-        }
-
-        res.json({ message: 'Event deleted successfully', result: deleteResult });
-      });
-    });
-  });
-};
