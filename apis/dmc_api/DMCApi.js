@@ -330,7 +330,7 @@ const bulkstorage = multer.diskStorage({
     const folderpath = path.join(__dirname, '..', '..', 'storage', 'dmc', 'events', event_name);
     if (!fs.existsSync(folderpath)) {
       fs.mkdirSync(folderpath, { recursive: true });
-      console.log(`Created directory: ${folderpath}`);
+      // console.log(`Created directory: ${folderpath}`);
     }
     return cb(null, folderpath);
   },
@@ -379,8 +379,8 @@ exports.add_event_photos = async (req, res) => {
     await Promise.all(filePromises);
     res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
   } catch (error) {
-    console.log(error);
-    console.log(error.message);
+    // console.log(error);
+    // console.log(error.message);
     console.error('Error in add_event_photos:', error);
     res.status(500).json({ error: 'Failed to upload photos' });
   }
@@ -429,8 +429,8 @@ exports.get_events_photos = async (req, res) => {
       }
     });
   } catch (error) {
-    console.log(error.message);
-    console.error("Error fetching events:", error);
+    // console.log(error.message);
+    // console.error("Error fetching events:", error);
     res.status(500).json({ error: 'Server is Busy in fetching events' });
   }
 };
