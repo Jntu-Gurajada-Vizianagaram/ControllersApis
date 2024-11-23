@@ -3,7 +3,6 @@ const fs = require('fs');
 const connection = require('../config');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
-console.log(api_ip);
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     return cb(null, './storage/notifications/');
