@@ -25,6 +25,9 @@ const alloweddomains = [
   "http://localhost:3001",
   "https://jntugv.edu.in",
   "https://admin.jntugv.edu.in",
+  "https://jntugv.vercel.app",
+  
+  
 ];
 
 // CORS Configuration

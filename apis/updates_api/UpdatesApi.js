@@ -3,6 +3,7 @@ const fs = require('fs');
 const connection = require('../config');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
+console.log(api_ip);
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     return cb(null, './storage/notifications/');
@@ -113,7 +114,7 @@ exports.update_event = (req, res) => {
               res.status(500).json({ error: 'Error updating event' });
               return;
           }
-          if (req.file && oldFilePath) {
+          if (req.file && oldFilePath && req.file.filename !== oldFilePath) {
               const oldFileFullPath = `./storage/notifications/${oldFilePath}`;
               fs.access(oldFileFullPath, fs.constants.F_OK, (err) => {
                   if (err) {

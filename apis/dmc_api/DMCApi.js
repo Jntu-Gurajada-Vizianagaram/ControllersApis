@@ -468,7 +468,7 @@ exports.delete_event_photos = (req, res) => {
 
   connection.query(selectSql, [eventId], (selectErr, selectResult) => {
     if (selectErr) {
-      console.error('Error selecting event:', selectErr);
+      // console.error('Error selecting event:', selectErr);
       res.status(500).json({ error: 'Error selecting event' });
       return;
     }
@@ -490,7 +490,7 @@ exports.delete_event_photos = (req, res) => {
 
       fs.rm(folderPath, { recursive: true, force: true }, (rmErr) => {
         if (rmErr) {
-          console.error('Error deleting event folder:', rmErr);
+         // console.error('Error deleting event folder:', rmErr);
           res.status(500).json({ error: 'Error deleting event folder' });
           return;
         }
