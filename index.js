@@ -3,7 +3,6 @@ const cors = require("cors");
 const app = express();
 require('dotenv').config();
 
-
 // Routes Import
 const schemas = require("./Schemas/AllSchemas");
 const admins = require("./routes/admin_routes/AdminRoute");
@@ -12,7 +11,7 @@ const updates = require("./routes/updates_routes/updates_api_routes");
 const dmcupload = require("./routes/dmc_routes/upload_api_routes");
 const affliatedColleges = require("./routes/affliated_colleges_routes/AffliatedCollegesRoutes");
 const results = require("./routes/results_routes/ResultsRoutes");
-const gallery = require("./routes/gallery_routes/gallery_routes"); // Added Gallery Routes
+const gallery = require("./routes/gallery_routes/gallery_routes");
 
 // Middleware Imports
 const session = require("express-session");
@@ -20,26 +19,37 @@ const bodyparser = require("body-parser");
 const cookieparser = require("cookie-parser");
 const con = require("./apis/config");
 
-const alloweddomains = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "https://jntugv.edu.in",
-  "https://admin.jntugv.edu.in",
-  "https://jntugv.vercel.app",
-  
-  
-];
-
 // CORS Configuration
-app.use(cors({
-  origin: alloweddomains,
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed domains and subdomains
+    const allowedDomains = [
+      /^https?:\/\/(.*\.)?jntugv\.edu\.in$/,
+      /^https?:\/\/localhost(:\d+)?$/,
+      /^https?:\/\/jntugv\.vercel\.app$/
+    ];
+    
+    // Check if the origin matches any of the allowed patterns
+    const isAllowed = allowedDomains.some(domain => domain.test(origin));
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"]
-}));
+};
 
-// Handle preflight requests for DELETE and other methods
-app.options('*', cors());
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieparser());
@@ -48,11 +58,13 @@ app.use(bodyparser.urlencoded({ extended: true }));
 app.use(
   session({
     key: "userId",
-    secret: "subscribe",
+    secret: process.env.SESSION_SECRET || "subscribe", // Use environment variable for secret
     resave: false,
     saveUninitialized: false,
     cookie: {
-      expires: 60 * 60 * 24,
+      expires: 60 * 60 * 24 * 1000, // Fixed: should be in milliseconds
+      secure: process.env.NODE_ENV === "production", // Secure in production
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
     },
   }),
 );
@@ -69,7 +81,7 @@ app.use("/api/admins", admins);
 app.use("/api/mailing", mailing);
 app.use("/api/updates", updates);
 app.use("/api/webadmin", dmcupload);
-app.use("/api/gallery", gallery); // Added Gallery Routes
+app.use("/api/gallery", gallery);
 app.use("/api/affliated-colleges", affliatedColleges);
 app.use("/api/results", results);
 
@@ -79,6 +91,9 @@ app.get('/', (req, res) => {
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'CORS policy blocked this request' });
+  }
   console.error(err.stack);
   res.status(500).send('Something went wrong!');
 });
