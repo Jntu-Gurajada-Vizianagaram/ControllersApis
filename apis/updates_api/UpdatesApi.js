@@ -3,23 +3,28 @@ const fs = require('fs');
 const connection = require('../config');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
-console.log(api_ip);
+const { safeFilename, notificationFileFilter } = require('../../utils/uploads');
+fs.mkdirSync('./storage/notifications/', { recursive: true });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     return cb(null, './storage/notifications/');
   },
   filename: (req, file, cb) => {
-    return cb(null, `${file.originalname}`);
+    return cb(null, safeFilename(file));
   }
 });
 
 
-exports.Upload = multer({ storage }).single('file');
+exports.Upload = multer({
+  storage,
+  limits: { files: 1, fileSize: 20 * 1024 * 1024 },
+  fileFilter: notificationFileFilter,
+}).single('file');
 
 exports.insert_event = (req, res) => {
   
   const update = req.body;
-  const file = req.file ? req.file.originalname : '';
+  const file = req.file ? req.file.filename : '';
   const int = 0;
     const sql = 'INSERT INTO notification_updates (date, title, file_path, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
   const values = [update.date, update.title, file, update.external_txt, update.external_lnk, update.main_page, update.scrolling, update.update_type, update.update_status, update.submitted_by, update.admin_approval];

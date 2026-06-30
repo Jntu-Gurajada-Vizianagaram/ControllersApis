@@ -1,5 +1,7 @@
 /storage/gallery/
 /storage/notifications/
 .env
+.env.*
+!.env.example
 /apis/config.sql
 /storage

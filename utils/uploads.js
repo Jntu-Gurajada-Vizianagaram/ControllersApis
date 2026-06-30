@@ -1,0 +1,39 @@
+const crypto = require('crypto');
+const path = require('path');
+
+const extensionsByMime = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'application/pdf': '.pdf',
+};
+
+const safeFilename = (file) => {
+  const extension = extensionsByMime[file.mimetype];
+  if (!extension) throw new Error('Unsupported file type');
+  return `${Date.now()}-${crypto.randomUUID()}${extension}`;
+};
+
+const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const notificationMimeTypes = new Set([...imageMimeTypes, 'application/pdf']);
+
+const fileFilterFor = (allowedTypes) => (req, file, callback) => {
+  const allowed = allowedTypes.has(file.mimetype);
+  callback(allowed ? null : new Error('Unsupported file type'), allowed);
+};
+
+const safeEventName = (value) => {
+  const eventName = String(value || '').trim();
+  if (!/^[a-zA-Z0-9 _-]{1,100}$/.test(eventName)) {
+    throw new Error('Event name may contain only letters, numbers, spaces, hyphens, and underscores');
+  }
+  return eventName;
+};
+
+module.exports = {
+  safeFilename,
+  safeEventName,
+  imageFileFilter: fileFilterFor(imageMimeTypes),
+  notificationFileFilter: fileFilterFor(notificationMimeTypes),
+};

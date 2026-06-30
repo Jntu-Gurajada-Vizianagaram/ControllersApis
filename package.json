@@ -4,7 +4,12 @@
     "description": "��#\u0000 \u0000C\u0000o\u0000n\u0000t\u0000r\u0000o\u0000l\u0000l\u0000e\u0000r\u0000s\u0000A\u0000p\u0000i\u0000s\u0000\r\u0000 \u0000",
     "main": "index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "start": "node index.js",
+        "dev": "nodemon --watch index.js --watch apis --watch middleware --watch routes --watch Schemas --ext js,json index.js",
+        "test": "node --test",
+        "migrate-admin-email": "node scripts/migrate-admin-email.js",
+        "seed:approved-admins": "node scripts/seed-approved-admins.js",
+        "migrate:schema": "node scripts/migrate-schema.js"
     },
     "author": "",
     "license": "ISC",

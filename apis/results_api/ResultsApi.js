@@ -8,7 +8,11 @@ const path = require('path')
 
 exports.r13results=(req,res)=>{
     const regulation = req.params.reg
-    const folderpath = path.join(`../../public/Storage/Results/BTECH3-2/${regulation}`);
+    if (!/^[a-zA-Z0-9_-]+$/.test(regulation)) {
+        return res.status(400).json({ error: 'Invalid regulation' });
+    }
+    const resultsRoot = path.resolve(process.env.RESULTS_DIR || path.join(__dirname, '..', '..', '..', 'Controllers', 'public', 'Storage', 'Results'));
+    const folderpath = path.join(resultsRoot, 'BTECH3-2', regulation);
     fs.readdir(folderpath,(err,files)=>{
         if(err){
             console.log(err)

@@ -5,24 +5,33 @@ const con = require('../config');
 const api_ip = process.env.domainIp;
 const fs = require('fs');
 const path = require('path');
+const { safeFilename, safeEventName, imageFileFilter } = require('../../utils/uploads');
+fs.mkdirSync('./storage/dmc/', { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     return cb(null, './storage/dmc/');
   },
   filename: (req, file, cb) => {
-    return cb(null, `${file.originalname}`);
+    return cb(null, safeFilename(file));
   }
 });
 
-exports.dmcUpload = multer({ storage }).single('file');
+exports.dmcUpload = multer({
+  storage,
+  limits: { files: 1, fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+}).single('file');
 
 exports.insert_img = (req, res) => {
   const dmcupload = req.body;
   const file = req.file;
   const int = 0;
   const sql = 'INSERT INTO dmc_upload (id, date, title, file_path, description, submitted, admin_approval, carousel_scrolling, gallery_scrolling) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-  const values = [int, dmcupload.date, dmcupload.title, file.originalname, dmcupload.description, dmcupload.submitted, dmcupload.admin_approval, dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
+  if (!file) {
+    return res.status(400).json({ error: 'An image file is required' });
+  }
+  const values = [int, dmcupload.date, dmcupload.title, file.filename, dmcupload.description, dmcupload.submitted, dmcupload.admin_approval, dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
 
   connection.query(sql, values, (err, result) => {
     if (err) {
@@ -36,19 +45,22 @@ exports.insert_img = (req, res) => {
 
 exports.delete_img = (req, res) => {
   const id = req.params.id;
-  const sel = `SELECT * FROM dmc_upload WHERE id = ${id}`;
-  const del = `DELETE FROM dmc_upload WHERE id = ${id}`;
+  const sel = 'SELECT * FROM dmc_upload WHERE id = ?';
+  const del = 'DELETE FROM dmc_upload WHERE id = ?';
   
-  connection.query(sel, (err, result) => {
+  connection.query(sel, [id], (err, result) => {
     if (err) {
       console.error('Error deleting data:', err);
       res.status(500).json({ error: 'Error deleting data' });
       return;
     }
     
-    const filepath = `./storage/dmc/${result[0].file_path}`;
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+    const filepath = path.join('./storage/dmc', result[0].file_path);
     
-    connection.query(del, (err, result) => {
+    connection.query(del, [id], (err, deleteResult) => {
       if (err) {
         console.log(err);
         res.status(500).json({ error: 'No Records Found!' });
@@ -56,22 +68,20 @@ exports.delete_img = (req, res) => {
       } else {
         fs.access(filepath, fs.constants.F_OK, (err) => {
           if (err) {
-            res.json(err);
             console.error('File does not exist');
-            return;
+            return res.json({ message: 'Record deleted; file was already missing' });
           }
           
           fs.unlink(filepath, (err) => {
             if (err) {
               console.error('Error removing file:', err);
-              return;
+              return res.status(500).json({ error: 'Record deleted but file cleanup failed' });
             }
+            res.json({ message: 'Data deleted successfully', result: deleteResult });
           });
         });
       }
     });
-
-    res.json({ message: 'Data deleted successfully', result });
   });
 };
 
@@ -121,19 +131,6 @@ exports.carousel_imgs = (req, res) => {
   });
 };
 
-// exports.update_carousel_image = (req, res) => {
-//   const img_id = req.params.id;
-//   const { dmcupload } = req.body;
-//   const sql = `UPDATE dmc_upload SET carousel_scrolling='yes', admin_approval='pending' WHERE id=${img_id}`;
-//   connection.query(sql, (err, result) => {
-//     if (err) {
-//       console.log(err);
-//     } else {
-//       res.json({ message: `${img_id}`, result: result });
-//     }
-//   });
-// };
-
 exports.carousel_imgs_preview = (req, res) => {
   const sql = "SELECT * FROM dmc_upload WHERE admin_approval='pending' AND carousel_scrolling='yes' ORDER BY id AND admin_approval DESC";
 
@@ -159,13 +156,13 @@ exports.carousel_imgs_preview = (req, res) => {
 
 exports.remove_from_carousel = (req, res) => {
   const img_id = req.params.imgid;
-  const query1 = `SELECT * FROM dmc_upload WHERE id=${img_id} AND carousel_scrolling='yes'`;
-  const query2 = `UPDATE dmc_upload SET carousel_scrolling='no', admin_approval = 'pending' WHERE id=${img_id}`;
-  con.query(query1, (err, result1) => {
+  const query1 = "SELECT * FROM dmc_upload WHERE id = ? AND carousel_scrolling = 'yes'";
+  const query2 = "UPDATE dmc_upload SET carousel_scrolling = 'no', admin_approval = 'pending' WHERE id = ?";
+  con.query(query1, [img_id], (err, result1) => {
     if (err) {
       console.log(err);
     } else {
-      con.query(query2, (err, result2) => {
+      con.query(query2, [img_id], (err, result2) => {
         if (err) {
           console.log(err);
         } else {
@@ -178,13 +175,13 @@ exports.remove_from_carousel = (req, res) => {
 
 exports.add_to_carousel = (req, res) => {
   const img_id = req.params.imgid;
-  const query1 = `SELECT * FROM dmc_upload WHERE id=${img_id} AND carousel_scrolling='no'`;
-  const query2 = `UPDATE dmc_upload SET carousel_scrolling='yes', admin_approval = 'pending' WHERE id=${img_id}`;
-  con.query(query1, (err, result1) => {
+  const query1 = "SELECT * FROM dmc_upload WHERE id = ? AND carousel_scrolling = 'no'";
+  const query2 = "UPDATE dmc_upload SET carousel_scrolling = 'yes', admin_approval = 'pending' WHERE id = ?";
+  con.query(query1, [img_id], (err, result1) => {
     if (err) {
       console.log(err);
     } else {
-      con.query(query2, (err, result2) => {
+      con.query(query2, [img_id], (err, result2) => {
         if (err) {
           console.log(err);
         } else {
@@ -309,12 +306,12 @@ exports.webadmin_request_accept = (req, res) => {
 
 exports.webadmin_request_deny = (req, res) => {
   const imgid = req.params.id;
-  const sql = `SELECT * FROM dmc_upload WHERE id = ${imgid}`;
-  connection.query(sql, (err, result) => {
+  const sql = 'SELECT * FROM dmc_upload WHERE id = ?';
+  connection.query(sql, [imgid], (err, result) => {
     if (err) {
       res.status(500).json({ error: `error in accepting update ${err}` });
     } else if (result.length > 0) {
-      connection.query(`UPDATE dmc_upload set admin_approval='denied' WHERE id=${imgid}`, (uperr, upres) => {
+      connection.query("UPDATE dmc_upload SET admin_approval = 'denied' WHERE id = ?", [imgid], (uperr, upres) => {
         if (uperr) {
           res.status(500).json({ error: `error in accepting update ${err}` });
         }
@@ -326,7 +323,12 @@ exports.webadmin_request_deny = (req, res) => {
 
 const bulkstorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const event_name = req.body.event_name;
+    let event_name;
+    try {
+      event_name = safeEventName(req.body.event_name);
+    } catch (error) {
+      return cb(error);
+    }
     const folderpath = path.join(__dirname, '..', '..', 'storage', 'dmc', 'events', event_name);
     if (!fs.existsSync(folderpath)) {
       fs.mkdirSync(folderpath, { recursive: true });
@@ -335,11 +337,15 @@ const bulkstorage = multer.diskStorage({
     return cb(null, folderpath);
   },
   filename: (req, file, cb) => {
-    return cb(null, `${file.originalname}`);
+    return cb(null, safeFilename(file));
   }
 });
 
-exports.bulkupload = multer({ storage: bulkstorage }).array('files', 60);
+exports.bulkupload = multer({
+  storage: bulkstorage,
+  limits: { files: 60, fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+}).array('files', 60);
 
 exports.add_event_photos = async (req, res) => {
   const events_details = req.body;
@@ -532,14 +538,14 @@ exports.webadmin_event_requests = (req, res) => {
 exports.webadmin_event_request_accept = (req, res) => {
   const imgid = req.params.id;
   console.log(imgid);
-  const sql = `select * from event_photos WHERE id =${imgid}`;
-  connection.query(sql, (err, result) => {
+  const sql = 'SELECT * FROM event_photos WHERE id = ?';
+  connection.query(sql, [imgid], (err, result) => {
     if (err) {
       console.log(err);
       res.status(500).json({ error: `error in accepting update ${err}` });
     }
     if (result.length > 0) {
-      connection.query(`UPDATE event_photos set admin_approval='accepted' WHERE id=${imgid}`, (uperr, upres) => {
+      connection.query("UPDATE event_photos SET admin_approval = 'accepted' WHERE id = ?", [imgid], (uperr, upres) => {
         if (uperr) {
           res.status(500).json({ error: `error in accepting update ${err}` });
         }
@@ -553,12 +559,12 @@ exports.webadmin_event_request_accept = (req, res) => {
 
 exports.webadmin_event_request_deny = (req, res) => {
   const imgid = req.params.id;
-  const sql = `select * from event_photos WHERE id =${imgid}`;
-  connection.query(sql, (err, result) => {
+  const sql = 'SELECT * FROM event_photos WHERE id = ?';
+  connection.query(sql, [imgid], (err, result) => {
     if (err) {
       res.status(500).json({ error: `error in accepting update ${err}` });
     } else if (result.length > 0) {
-      connection.query(`UPDATE event_photos set admin_approval='denied' WHERE id=${imgid}`, (uperr, upres) => {
+      connection.query("UPDATE event_photos SET admin_approval = 'denied' WHERE id = ?", [imgid], (uperr, upres) => {
         if (uperr) {
           res.status(500).json({ error: `error in accepting update ${err}` });
         }

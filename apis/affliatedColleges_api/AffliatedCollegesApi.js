@@ -1,11 +1,10 @@
 const connection = require('../config')
 
 exports.insert_college = (req, res) => {
-  const {data} = req.body;
-  const int = 0;
-  const sql = 'INSERT INTO affiliated_colleges (id,logo, college_name, college_address,college_link) VALUES (?,?, ?, ?, ?)';
+  const data = req.body.data || req.body;
+  const sql = 'INSERT INTO affiliated_colleges (logo, college_name, college_address, college_link) VALUES (?, ?, ?, ?)';
 
-  connection.query(sql, [int,data.logo, data.college_name, data.college_address, data.college_link], (err, result) => {
+  connection.query(sql, [data.logo, data.college_name, data.college_address, data.college_link], (err, result) => {
     if (err) {
       console.error('Error inserting data:', err);
       res.status(500).json({ error: 'Error inserting data' });
@@ -18,10 +17,10 @@ exports.insert_college = (req, res) => {
 
 exports.update_college= (req, res) => {
   const updateId = req.params.id;
-  const { update } = req.body;
+  const update = req.body.update || req.body;
 
   const sql = 'UPDATE affiliated_colleges SET logo=?, college_name=?,  college_address=?, college_link=? WHERE id=?';
-  const values = [update.logo, update.college_name,  update.college_address, update.college_link];
+  const values = [update.logo, update.college_name, update.college_address, update.college_link, updateId];
 
   connection.query(sql, values, (err, result) => {
     if (err) {
@@ -36,16 +35,18 @@ exports.update_college= (req, res) => {
 
 
 exports.delete_college = (req, res) => {
-const collegeName = req.params.college_name;
-const sql = 'DELETE FROM affiliated_colleges WHERE college_name = ?';
+const id = req.params.id;
+const sql = 'DELETE FROM affiliated_colleges WHERE id = ?';
 
-connection.query(sql, collegeName, (err, result) => {
+connection.query(sql, [id], (err, result) => {
   if (err) {
     console.error('Error deleting data:', err);
     res.status(500).json({ error: 'Error deleting data' });
     return;
   }
-  console.log('Data deleted successfully');
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ error: 'College not found' });
+  }
   res.json({ message: 'Data deleted successfully' });
 });
 };
@@ -78,7 +79,7 @@ const port = 3001;
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: '4363',
+  password: process.env.DB_PASSWORD,
   database: 'jntugv',
 });
 

@@ -1,33 +1,28 @@
-const mysql = require("mysql2");
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
+const mysql = require('mysql2');
 
-// const con = mysql.createConnection({
-//   host: "localhost",
-//   user: "root",
-//   password: "1437890",
-//   database: "jntugv",
-//   port: "3306"  ,
-// });
-// const con = mysql.createConnection({
-//   host: "3.7.40.139",
-//   user: "JNTUGV",
-//   password: "password",
-//   database: "jntugv",
-//   port: "3306",
-// });
-const con=mysql.createConnection({
-    host:"localhost",
-    user:"dbadmin",
-    password:"Jntugv@dmc23",
-    database:"jntugv",
-    port:"3306"
-})
+const requiredDatabaseVariables = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const missingDatabaseVariables = process.env.DATABASE_URL
+  ? []
+  : requiredDatabaseVariables.filter(name => !String(process.env[name] || '').trim());
 
-// const con=mysql.createConnection({
-//     host:"localhost",
-//     user:"root",
-//     password:"Anil@73",
-//     database:"jntugv",
-//     port:"3306"  ,
-// })
-module.exports = con;
+if (missingDatabaseVariables.length) {
+  throw new Error(
+    `Database configuration is incomplete. Set ${missingDatabaseVariables.join(', ')} in ControllersApis/.env`,
+  );
+}
+
+const connectionOptions = process.env.DATABASE_URL || {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT || 3306),
+  connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000),
+};
+
+const connection = mysql.createConnection(connectionOptions);
+
+module.exports = connection;

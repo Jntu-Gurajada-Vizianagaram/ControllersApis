@@ -1,92 +1,53 @@
-const nodemailer = require('nodemailer')
-const multer = require('multer')
-const transporter = nodemailer.createTransport({
-    service:'Gmail',
-    auth:{
-        user:'studentgrievances@jntugv.edu.in',
-        pass:"ruhb pwut omkg cvxo"
-    },
-});
+const crypto = require('crypto');
+const { createTransporter, escapeHtml } = require('./mailer');
 
+const requiredFields = ['rollno', 'email', 'name', 'phno', 'collegename', 'category', 'msg', 'date'];
 
-exports.send_grievance = (req,res)=>{
-    //console.log("entered into MAILING")
-    try {        
-        const {rollno,email,name,phno,adhaarno,collegename,category,msg,date} = req.body;
-        const attach =req.file ? {path:req.file.path} : null;
-
-        const body=`<!DOCTYPE html>
-<html>
-<head>
-    <title>HTML Email Example</title>
-</head>
-<body>
-    <h1>Hello, ${name} </h1>
-    <p>Thank You For Contacting JNTUGV GRIEVIANCE PORTAL </p>
-    <p> </p>
-
-    <ul>
-        <div>Name:${name}</div>
-        <div>Rollno:${rollno}</div>
-        <div>Email:${email}</div>
-        <div>Phone No:${phno}</div>
-        <div>Adhaar No:${adhaarno}</div>
-        <div>College Name:${collegename}</div>
-        <div>Category:${category}</div>
-        <div>Message:${msg}</div>
-        <div>File:${attach}</div>
-        <h2><center>Your Grievance Recored Successfully on${date} </center></h2>
-        
-    </ul>
-    <p><center>Please Go Through the Link for more information<a href="https://ucev.in">JNTU-GV</a></center></p>
-</body>
-</html>
-`
-if(rollno == null || email ==null || name ==null || phno ==null || adhaarno ==null || collegename ==null || category ==null || msg ==null || date ==null){
-    const required = {
-        "rollno":"",
-        "email":"",
-        "name":"",
-        "phno":"",
-        "adhaarno":"",
-        "collegename":"",
-        "category":"",
-        "msg":"",
-        "date":""
+exports.send_grievance = async (req, res) => {
+  try {
+    const missing = requiredFields.filter(field => !String(req.body[field] || '').trim());
+    if (missing.length) {
+      return res.status(400).json({ message: 'Required fields are missing', fields: missing });
     }
-    console.log(req.body.rollno)
-    res.json({success:"All These Fields Required",required})
-    
-}else{
-        const mailoptions= {
-            from:`Admin Grievance<studentgrievances@jntugv.edu.in>`,
-            to:`${email}`,
-            subject:'Admin Grievance',
-            text:` `,
-            html:`${body}`,
-            // attachments:[attach]
-        }
-    
-        transporter.sendMail(mailoptions,(error,info)=>{
-            if(error){
-                console.log("Sending Error"+error)
-                res.status(500).send('Email Sending Failed!')
-            }
-            else{
-                console.log("SENT"+info.response)
-                res.json({success:true,data:{name,email,msg}})
-            }
-        })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.body.email)) {
+      return res.status(400).json({ message: 'A valid email address is required' });
     }
-    } catch (error) {
-        console.log(error)
-    }
-}
 
-exports.receive= (req,res)=>{
-    try {
-        res.send("im recieving")
-    } catch (error) {
-        console.log(error)
-    }
-}
+    const safe = Object.fromEntries(Object.entries(req.body).map(([key, value]) => [key, escapeHtml(String(value).slice(0, 5000))]));
+    const referenceId = `JNTUGV-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+    const transporter = createTransporter();
+    const attachment = req.file ? [{
+      filename: req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_'),
+      content: req.file.buffer,
+      contentType: req.file.mimetype,
+    }] : [];
+
+    await transporter.sendMail({
+      from: `JNTU-GV Grievance <${process.env.SMTP_USER}>`,
+      to: process.env.GRIEVANCE_RECIPIENT,
+      replyTo: req.body.email,
+      subject: `Student grievance ${referenceId}`,
+      html: `<h2>Student grievance ${referenceId}</h2>
+        <p><b>Name:</b> ${safe.name}</p><p><b>Roll number:</b> ${safe.rollno}</p>
+        <p><b>Email:</b> ${safe.email}</p><p><b>Phone:</b> ${safe.phno}</p>
+        <p><b>Aadhaar:</b> ${safe.adhaarno || 'Not provided'}</p>
+        <p><b>College:</b> ${safe.collegename}</p><p><b>Category:</b> ${safe.category}</p>
+        <p><b>Incident date:</b> ${safe.date}</p><p><b>Message:</b> ${safe.msg}</p>`,
+      attachments: attachment,
+    });
+
+    await transporter.sendMail({
+      from: `JNTU-GV Grievance <${process.env.SMTP_USER}>`,
+      to: req.body.email,
+      subject: `Grievance received - ${referenceId}`,
+      html: `<p>Hello ${safe.name},</p><p>Your grievance has been received.</p><p>Reference: <b>${referenceId}</b></p>`,
+    });
+
+    res.status(201).json({ success: true, referenceId });
+  } catch (error) {
+    console.error('Unable to submit grievance:', error.message);
+    res.status(500).json({ message: 'Unable to submit grievance' });
+  }
+};
+
+exports.receive = (req, res) => res.json({ message: 'Grievance API is available' });

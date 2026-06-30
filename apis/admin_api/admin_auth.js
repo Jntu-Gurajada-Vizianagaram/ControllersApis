@@ -9,6 +9,8 @@ const bodyparser = require('body-parser');
 const cookieparser = require('cookie-parser');
 
 const app = express();
+const { normalizeEmail, isOrganizationEmail } = require('./emailPolicy');
+const { establishAdminSession } = require('./adminSession');
 
 app.use(express.json());
 app.use(cors());
@@ -32,53 +34,109 @@ app.use(cors());
 //   },
 // }));
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   try {
-      const { credentials } = req.body;
-      const sql = "SELECT role, password, name FROM admins WHERE username=(?);";
+    const credentials = req.body.credentials || {};
+    const identifier = String(credentials.username || '').trim().toLowerCase();
+    const password = String(credentials.password || '');
+    if (!identifier || !password) {
+      return res.status(400).json({ islogin: false, message: 'Login credentials are required' });
+    }
 
-      con.query(sql, [credentials.username], async (err, result) => {
-          if (err) {
-              console.log(err);
-              res.status(500).json({ islogin: false, message: "Database Error" });
-          } else if (result.length > 0) {
-              let storedPassword = result[0].password;
-
-              // If the password is plain text (not hashed), hash it and update the database
-              if (!storedPassword.startsWith('$2b$')) { // bcrypt hashed passwords start with $2b$
-                  const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
-                  const updateSql = "UPDATE admins SET password = ? WHERE username = ?";
-                  con.query(updateSql, [hashedPassword, credentials.username], (err) => {
-                      if (err) {
-                          console.log("Failed to update password: " + err);
-                      }
-                  });
-                  storedPassword = hashedPassword;
-              }
-
-              // Compare the entered password with the stored hashed password
-              const isMatch = await bcrypt.compare(credentials.password, storedPassword);
-
-              if (isMatch) {
-                  const role = result[0].role;
-                  const admin_name = result[0].name;
-                  req.session.userid = role;
-                  res.send({ islogin: true, role: role, admin: admin_name });
-              } else {
-                  res.send({ islogin: false, message: "Incorrect Password" });
-              }
-          } else {
-              res.send({ islogin: false, message: "Admin Doesn't Exist" });
-          }
+    const db = con.promise();
+    const isEmailLogin = identifier.includes('@');
+    if (isEmailLogin && !isOrganizationEmail(normalizeEmail(identifier))) {
+      return res.status(403).json({
+        islogin: false,
+        message: 'Invalid login credentials',
       });
+    }
+
+    let rows = [];
+    let sourceTable = 'admins';
+    if (isEmailLogin) {
+      [rows] = await db.execute(
+        `SELECT a.id, a.role, a.password, a.name, LOWER(TRIM(a.username)) AS username
+         FROM admins a
+         INNER JOIN admin_email_allowlist w ON w.email = LOWER(TRIM(a.username)) AND w.enabled = TRUE
+         WHERE LOWER(TRIM(a.username)) = ?
+         LIMIT 1`,
+        [normalizeEmail(identifier)],
+      );
+    } else {
+      [rows] = await db.execute(
+        `SELECT id, role, password, name, LOWER(TRIM(username)) AS username
+         FROM admins
+         WHERE LOWER(TRIM(username)) = ?
+         LIMIT 1`,
+        [identifier],
+      );
+
+      if (!rows.length) {
+        const [userTables] = await db.execute("SHOW TABLES LIKE 'users'");
+        if (userTables.length) {
+          sourceTable = 'users';
+          const [userColumns] = await db.execute('SHOW COLUMNS FROM users');
+          const columnNames = new Set(userColumns.map(column => column.Field));
+          const idExpression = columnNames.has('id') ? 'id' : 'username AS id';
+          const nameExpression = columnNames.has('name')
+            ? "COALESCE(NULLIF(name, ''), username) AS name"
+            : 'username AS name';
+          const roleExpression = columnNames.has('role')
+            ? "COALESCE(NULLIF(role, ''), 'Admin') AS role"
+            : "'Admin' AS role";
+          [rows] = await db.execute(
+            `SELECT ${idExpression},
+                    ${roleExpression},
+                    password,
+                    ${nameExpression},
+                    LOWER(TRIM(username)) AS username
+             FROM users
+             WHERE LOWER(TRIM(username)) = ?
+             LIMIT 1`,
+            [identifier],
+          );
+        }
+      }
+    }
+
+    if (!rows.length) {
+      return res.status(401).json({ islogin: false, message: 'Invalid login credentials' });
+    }
+
+    const admin = rows[0];
+    const storedPassword = String(admin.password || '');
+    const passwordMatches = /^\$2[aby]\$/.test(storedPassword)
+      ? await bcrypt.compare(password, storedPassword)
+      : password === storedPassword;
+
+    if (!passwordMatches) {
+      return res.status(401).json({ islogin: false, message: 'Invalid login credentials' });
+    }
+
+    if (sourceTable === 'admins' && !/^\$2[aby]\$/.test(storedPassword)) {
+      await db.execute('UPDATE admins SET password = ? WHERE id = ?', [
+        await bcrypt.hash(storedPassword, saltRounds),
+        admin.id,
+      ]);
+    }
+
+    const user = await establishAdminSession(req, admin);
+    res.json({
+      islogin: true,
+      role: user.role,
+      admin: user.name,
+      email: user.email,
+      username: user.email,
+    });
   } catch (error) {
-      console.log(error);
-      res.status(500).json({ islogin: false, message: "Server Error" });
+    console.error('Password login failed:', error.message);
+    res.status(500).json({ islogin: false, message: 'Unable to log in' });
   }
 };
 
 exports.alladmins = (req, res) => {
-  const query = "SELECT * FROM admins;";
+  const query = "SELECT id, name, username, role FROM admins ORDER BY id;";
   try {
     con.query(query, (err, result) => {
       if (err) {
@@ -95,42 +153,70 @@ exports.alladmins = (req, res) => {
 
 exports.role_session = (req, res) => {
   try {
-    const role = req.session.userid;
-    if (role !== "") {
-      res.status(200).json({ MSG: role });
-    } else {
-      console.log("Role Not Assigned");
-      res.json({ msg: "role not assigned" });
-    }
+    res.status(200).json({ user: req.session.user });
   } catch (error) {
     console.log(error);
     res.status(500).json({ msg: "Server Error" });
   }
 };
 
+exports.logout = (req, res) => {
+  req.session.destroy((error) => {
+    if (error) {
+      return res.status(500).json({ message: 'Unable to log out' });
+    }
+    res.clearCookie('jntugv.sid');
+    res.status(204).send();
+  });
+};
+
 // Update HOD (Admin) details
 exports.update_hod = async (req, res) => {
   const adminId = req.params.id;
   const { name, username, password, role } = req.body;
+  const allowedRoles = new Set(['RootAdmin', 'Admin', 'Developer', 'WebAdmin', 'Updates', 'AffiliatedColleges', 'AffliatedColleges', 'Directors']);
+
+  const email = normalizeEmail(username);
+  if (!name || !isOrganizationEmail(email) || !allowedRoles.has(role)) {
+    return res.status(400).json({ Success: false, MSG: 'Valid name, organizational email, and role are required' });
+  }
 
   try {
     // If a new password is provided, hash it before updating
-    let hashedPassword = password;
-    if (password && !password.startsWith('$2b$')) {
-      hashedPassword = await bcrypt.hash(password, saltRounds);
+    const db = con.promise();
+    const [existingRows] = await db.execute('SELECT username FROM admins WHERE id = ?', [adminId]);
+    if (!existingRows.length) return res.status(404).json({ Success: false, MSG: 'Admin not found' });
+    const previousEmail = normalizeEmail(existingRows[0].username);
+    const fields = ['name = ?', 'username = ?', 'role = ?'];
+    const values = [name, email, role];
+    if (previousEmail !== email) fields.push('google_sub = NULL');
+    if (password) {
+      fields.push('password = ?');
+      values.push(await bcrypt.hash(password, saltRounds));
     }
-
-    const sql = "UPDATE admins SET name = ?, username = ?, password = ?, role = ? WHERE id = ?;";
-    con.query(sql, [name, username, hashedPassword, role, adminId], (err, result) => {
-      if (err) {
-        console.log("Error updating admin: " + err);
-        res.status(500).json({ Success: false, MSG: "Failed to update admin" });
-      } else {
-        res.json({ Success: true, MSG: "Admin updated successfully" });
-      }
-    });
+    values.push(adminId);
+    const sql = `UPDATE admins SET ${fields.join(', ')} WHERE id = ?`;
+    await db.beginTransaction();
+    await db.execute(sql, values);
+    await db.execute(
+      `INSERT INTO admin_email_allowlist (email, enabled, created_by) VALUES (?, TRUE, ?)
+       ON DUPLICATE KEY UPDATE enabled = TRUE, created_by = VALUES(created_by)`,
+      [email, req.session.user.id],
+    );
+    if (previousEmail !== email) {
+      await db.execute('UPDATE admin_email_allowlist SET enabled = FALSE WHERE email = ?', [previousEmail]);
+    }
+    await db.commit();
+    if (Number(adminId) === Number(req.session.user.id)) {
+      req.session.user.email = email;
+      req.session.user.name = name;
+      req.session.user.role = role;
+      await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    }
+    res.json({ Success: true, MSG: "Admin updated successfully" });
   } catch (error) {
-    console.log(error);
+    try { await con.promise().rollback(); } catch {}
+    console.error(error);
     res.status(500).json({ Success: false, MSG: "Error updating admin" });
   }
 };

@@ -1,6 +1,9 @@
 const express = require("express");
 const cors = require("cors");
+const path = require('path');
+const crypto = require('crypto');
 const app = express();
+app.disable('x-powered-by');
 require('dotenv').config();
 
 // Routes Import
@@ -12,12 +15,21 @@ const dmcupload = require("./routes/dmc_routes/upload_api_routes");
 const affliatedColleges = require("./routes/affliated_colleges_routes/AffliatedCollegesRoutes");
 const results = require("./routes/results_routes/ResultsRoutes");
 const gallery = require("./routes/gallery_routes/gallery_routes");
+const directors = require('./routes/directors_routes/DirectorsRoutes');
 
 // Middleware Imports
 const session = require("express-session");
+const passport = require('passport');
 const bodyparser = require("body-parser");
 const cookieparser = require("cookie-parser");
 const con = require("./apis/config");
+const MySQLSessionStore = require('./middleware/MySQLSessionStore');
+
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET is required in production');
+}
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const sessionStore = new MySQLSessionStore(con);
 
 // CORS Configuration
 const corsOptions = {
@@ -26,14 +38,20 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     // List of allowed domains and subdomains
-    const allowedDomains = [
-      /^https?:\/\/(.*\.)?jntugv\.edu\.in$/,
-      /^https?:\/\/localhost(:\d+)?$/,
-      /^https?:\/\/jntugv\.vercel\.app$/
-    ];
+    const configuredOrigins = (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+    const allowedOrigins = new Set([
+      'https://jntugv.edu.in',
+      'https://www.jntugv.edu.in',
+      'https://admin.jntugv.edu.in',
+      'https://jntugv.vercel.app',
+      ...configuredOrigins,
+    ]);
     
     // Check if the origin matches any of the allowed patterns
-    const isAllowed = allowedDomains.some(domain => domain.test(origin));
+    const isAllowed = allowedOrigins.has(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin);
     
     if (isAllowed) {
       callback(null, true);
@@ -47,6 +65,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('X-Frame-Options', 'DENY');
+  next();
+});
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
@@ -58,13 +83,16 @@ app.use(bodyparser.urlencoded({ extended: true }));
 app.use(
   session({
     key: "userId",
-    secret: process.env.SESSION_SECRET || "subscribe", // Use environment variable for secret
+    name: 'jntugv.sid',
+    secret: sessionSecret,
+    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      expires: 60 * 60 * 24 * 1000, // Fixed: should be in milliseconds
+      maxAge: 60 * 60 * 24 * 1000,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production", // Secure in production
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+      sameSite: "lax"
     },
   }),
 );
@@ -74,7 +102,12 @@ app.use("/media", express.static("./storage/notifications"));
 app.use("/dmc", express.static("./storage/dmc"));
 app.use("/events", express.static("./storage/dmc/events"));
 app.use("/gallery/image", express.static("./storage/gallery"));
-app.use("/exam-files", express.static('./'));
+app.use('/director-images', express.static('./storage/directors', { dotfiles: 'deny', index: false }));
+const resultsDirectory = path.resolve(
+  process.env.RESULTS_DIR || path.join(__dirname, '..', 'Controllers', 'public', 'Storage', 'Results')
+);
+app.use(passport.initialize());
+app.use("/exam-files", express.static(resultsDirectory, { dotfiles: 'deny', index: false }));
 
 // Route Handling
 app.use("/api/admins", admins);
@@ -84,6 +117,7 @@ app.use("/api/webadmin", dmcupload);
 app.use("/api/gallery", gallery);
 app.use("/api/affliated-colleges", affliatedColleges);
 app.use("/api/results", results);
+app.use('/api/directors', directors);
 
 app.get('/', (req, res) => {
   res.json('Hey JNTUGV Devops API Working Successfully');
@@ -94,13 +128,31 @@ app.use((err, req, res, next) => {
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({ error: 'CORS policy blocked this request' });
   }
+  if (err.name === 'MulterError' || err.message === 'Unsupported file type' || err.message?.startsWith('Only ')) {
+    return res.status(400).json({ error: err.message });
+  }
   console.error(err.stack);
   res.status(500).send('Something went wrong!');
 });
 
 // Server Listener
 const port = process.env.PORT || 8888;
-app.listen(port, () => {
+const initializeDatabase = async () => {
+  await con.promise().query('SELECT 1');
+  await sessionStore.initialize();
   schemas.allSchemas();
-  console.log(`Server running at port no:${port}`);
-});
+};
+
+if (require.main === module) {
+  initializeDatabase()
+    .then(() => {
+      app.listen(port, () => console.log(`Server running at port no:${port}`));
+    })
+    .catch((error) => {
+      console.error(`Database startup failed: ${error.message}`);
+      process.exitCode = 1;
+    });
+}
+
+module.exports = app;
+module.exports.initializeDatabase = initializeDatabase;

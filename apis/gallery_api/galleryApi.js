@@ -61,8 +61,8 @@ exports.getAllGalleryImages = (req, res) => {
 };
 
 exports.getImageByFilename = (req, res) => {
-  const filename = req.params.filename;
-  const filepath = path.join('./storage/gallery/', filename);
+  const filename = path.basename(req.params.filename);
+  const filepath = path.resolve('./storage/gallery/', filename);
 
   fs.access(filepath, fs.constants.F_OK, (err) => {
     if (err) {
