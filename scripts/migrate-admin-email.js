@@ -11,7 +11,7 @@ if (!legacyUsername || !isOrganizationEmail(email)) {
   process.exitCode = 1;
 } else {
   const migrate = async () => {
-    const db = connection.promise();
+    const db = await connection.promise().getConnection();
     try {
       await db.beginTransaction();
       const [result] = await db.execute(
@@ -31,6 +31,7 @@ if (!legacyUsername || !isOrganizationEmail(email)) {
       console.error(`Migration failed: ${error.message}`);
       process.exitCode = 1;
     } finally {
+      db.release();
       connection.end();
     }
   };

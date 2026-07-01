@@ -21,6 +21,30 @@ exports.Upload = multer({
   fileFilter: notificationFileFilter,
 }).single('file');
 
+const getPagination = (query = {}, defaults = {}) => {
+  const fallbackLimit = Number(defaults.limit || 50);
+  const maxLimit = Number(defaults.maxLimit || 100);
+  const limit = Math.min(
+    Math.max(Number.parseInt(query.limit, 10) || fallbackLimit, 1),
+    maxLimit,
+  );
+  const offset = Math.max(Number.parseInt(query.offset, 10) || 0, 0);
+  return { limit, offset };
+};
+
+const mapNotificationRows = (results) => results.map(eve => {
+  const filelink = eve.file_path ? `${api_ip}/media/${eve.file_path}` : '';
+  const outdate = new Date(eve.date);
+
+  return {
+    ...eve,
+    file_link: filelink,
+    day: outdate.getDate(),
+    month: outdate.toLocaleString('en-US', { month: 'short' }),
+    year: outdate.getFullYear(),
+  };
+});
+
 exports.insert_event = (req, res) => {
   
   const update = req.body;
@@ -170,54 +194,30 @@ exports.update_request_deny = (req, res) => {
 };
 
 exports.every_events = (req, res) => {
-  const sql = "SELECT * FROM notification_updates ORDER BY id DESC";
+  const { limit, offset } = getPagination(req.query, { limit: 50, maxLimit: 100 });
+  const sql = "SELECT * FROM notification_updates ORDER BY id DESC LIMIT ? OFFSET ?";
 
-  connection.query(sql, (err, results) => {
+  connection.query(sql, [limit, offset], (err, results) => {
     if (err) {
       console.error('Error retrieving data:', err);
       res.status(500).json({ error: `Error retrieving data${err}` });
       return;
     }
-    const final_events = results.map(eve => {
-      const filelink = eve.file_path ?  `${api_ip}/media/${eve.file_path}`: '';
-      const outdate = new Date(eve.date);
-
-      return {
-        ...eve,
-        file_link: filelink,
-        day: outdate.getDate(),
-        month: outdate.toLocaleString('en-US', { month: 'short' }),
-        year: outdate.getFullYear(),
-      };
-    });
-
-    res.json(final_events);
+    res.json(mapNotificationRows(results));
   });
 };
 
 exports.all_admin_events = (req, res) => {
-  const sql = "SELECT * FROM notification_updates WHERE submitted_by = 'admin' ORDER BY id DESC";
+  const { limit, offset } = getPagination(req.query, { limit: 10, maxLimit: 100 });
+  const sql = "SELECT * FROM notification_updates WHERE submitted_by = 'admin' ORDER BY id DESC LIMIT ? OFFSET ?";
 
-  connection.query(sql, (err, results) => {
+  connection.query(sql, [limit, offset], (err, results) => {
     if (err) {
       console.error('Error retrieving data:', err);
       res.status(500).json({ error: `Error retrieving data${err}` });
       return;
     }
-    const final_events = results.map(eve => {
-      const filelink = eve.file_path ?  `${api_ip}/media/${eve.file_path}`: '';
-      const outdate = new Date(eve.date);
-
-      return {
-        ...eve,
-        file_link: filelink,
-        day: outdate.getDate(),
-        month: outdate.toLocaleString('en-US', { month: 'short' }),
-        year: outdate.getFullYear(),
-      };
-    });
-
-    res.json(final_events);
+    res.json(mapNotificationRows(results));
   });
 };
 

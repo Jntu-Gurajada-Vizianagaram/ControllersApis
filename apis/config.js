@@ -21,8 +21,13 @@ const connectionOptions = process.env.DATABASE_URL || {
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT || 3306),
   connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000),
+  waitForConnections: true,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 };
 
-const connection = mysql.createConnection(connectionOptions);
+const connection = mysql.createPool(connectionOptions);
 
 module.exports = connection;

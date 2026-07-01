@@ -176,20 +176,31 @@ exports.update_hod = async (req, res) => {
   const { name, username, password, role } = req.body;
   const allowedRoles = new Set(['RootAdmin', 'Admin', 'Developer', 'WebAdmin', 'Updates', 'AffiliatedColleges', 'AffliatedColleges', 'Directors']);
 
-  const email = normalizeEmail(username);
-  if (!name || !isOrganizationEmail(email) || !allowedRoles.has(role)) {
-    return res.status(400).json({ Success: false, MSG: 'Valid name, organizational email, and role are required' });
+  const requestedUsername = normalizeEmail(username);
+  if (!name || !requestedUsername || !allowedRoles.has(role)) {
+    return res.status(400).json({ Success: false, MSG: 'Valid name, username, and role are required' });
   }
 
+  let db;
   try {
     // If a new password is provided, hash it before updating
-    const db = con.promise();
+    db = await con.promise().getConnection();
     const [existingRows] = await db.execute('SELECT username FROM admins WHERE id = ?', [adminId]);
     if (!existingRows.length) return res.status(404).json({ Success: false, MSG: 'Admin not found' });
-    const previousEmail = normalizeEmail(existingRows[0].username);
+    const previousUsername = normalizeEmail(existingRows[0].username);
+    const requestedIsOrgEmail = isOrganizationEmail(requestedUsername);
+    const previousIsOrgEmail = isOrganizationEmail(previousUsername);
+
+    if (!requestedIsOrgEmail && requestedUsername !== previousUsername) {
+      return res.status(400).json({
+        Success: false,
+        MSG: 'Legacy usernames cannot be changed. Use a valid organizational email for new admin identities.',
+      });
+    }
+
     const fields = ['name = ?', 'username = ?', 'role = ?'];
-    const values = [name, email, role];
-    if (previousEmail !== email) fields.push('google_sub = NULL');
+    const values = [name, requestedUsername, role];
+    if (previousUsername !== requestedUsername) fields.push('google_sub = NULL');
     if (password) {
       fields.push('password = ?');
       values.push(await bcrypt.hash(password, saltRounds));
@@ -198,25 +209,29 @@ exports.update_hod = async (req, res) => {
     const sql = `UPDATE admins SET ${fields.join(', ')} WHERE id = ?`;
     await db.beginTransaction();
     await db.execute(sql, values);
-    await db.execute(
-      `INSERT INTO admin_email_allowlist (email, enabled, created_by) VALUES (?, TRUE, ?)
-       ON DUPLICATE KEY UPDATE enabled = TRUE, created_by = VALUES(created_by)`,
-      [email, req.session.user.id],
-    );
-    if (previousEmail !== email) {
-      await db.execute('UPDATE admin_email_allowlist SET enabled = FALSE WHERE email = ?', [previousEmail]);
+    if (requestedIsOrgEmail) {
+      await db.execute(
+        `INSERT INTO admin_email_allowlist (email, enabled, created_by) VALUES (?, TRUE, ?)
+         ON DUPLICATE KEY UPDATE enabled = TRUE, created_by = VALUES(created_by)`,
+        [requestedUsername, req.session.user.id],
+      );
+    }
+    if (previousIsOrgEmail && previousUsername !== requestedUsername) {
+      await db.execute('UPDATE admin_email_allowlist SET enabled = FALSE WHERE email = ?', [previousUsername]);
     }
     await db.commit();
     if (Number(adminId) === Number(req.session.user.id)) {
-      req.session.user.email = email;
+      req.session.user.email = requestedUsername;
       req.session.user.name = name;
       req.session.user.role = role;
       await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
     }
     res.json({ Success: true, MSG: "Admin updated successfully" });
   } catch (error) {
-    try { await con.promise().rollback(); } catch {}
+    try { if (db) await db.rollback(); } catch {}
     console.error(error);
     res.status(500).json({ Success: false, MSG: "Error updating admin" });
+  } finally {
+    if (db) db.release();
   }
 };

@@ -14,7 +14,7 @@ const approvedAdmins = [
 ];
 
 const seed = async () => {
-  const db = connection.promise();
+  const db = await connection.promise().getConnection();
 
   try {
     await db.beginTransaction();
@@ -48,6 +48,7 @@ const seed = async () => {
     console.error(`Unable to seed approved administrators: ${error.message}`);
     process.exitCode = 1;
   } finally {
+    db.release();
     connection.end();
   }
 };

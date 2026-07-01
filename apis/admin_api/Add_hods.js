@@ -16,7 +16,7 @@ exports.addhods = async (req, res) => {
     });
   }
 
-  const db = connection.promise();
+  const db = await connection.promise().getConnection();
   try {
     const hashedPassword = await bcrypt.hash(data.password, saltRounds);
     await db.beginTransaction();
@@ -39,6 +39,8 @@ exports.addhods = async (req, res) => {
       Success: false,
       MSG: duplicate ? 'Administrator already exists' : 'Unable to add administrator',
     });
+  } finally {
+    db.release();
   }
 };
 
