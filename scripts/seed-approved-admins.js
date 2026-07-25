@@ -5,6 +5,30 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const connection = require('../apis/config');
 
+const ensureTables = async (db) => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      username VARCHAR(255) NOT NULL UNIQUE KEY,
+      password VARCHAR(255) NOT NULL,
+      role VARCHAR(255) NOT NULL,
+      google_sub VARCHAR(255) NULL,
+      UNIQUE KEY uq_admins_google_sub (google_sub)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS admin_email_allowlist (
+      email VARCHAR(255) PRIMARY KEY,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_by INT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+};
+
 const approvedAdmins = [
   { name: 'DMC Root Administrator', email: 'dmc@jntugv.edu.in', role: 'RootAdmin' },
   { name: 'Data Processing Officer', email: 'dataprocessingofficer@jntugv.edu.in', role: 'Developer' },
@@ -17,6 +41,7 @@ const seed = async () => {
   const db = await connection.promise().getConnection();
 
   try {
+    await ensureTables(db);
     await db.beginTransaction();
 
     for (const admin of approvedAdmins) {

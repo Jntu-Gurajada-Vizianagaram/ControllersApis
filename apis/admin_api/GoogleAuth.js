@@ -5,10 +5,20 @@ const { establishAdminSession } = require('./adminSession');
 const { organizationDomain } = require('./emailPolicy');
 const { verifiedOrganizationIdentity } = require('./googleProfilePolicy');
 
-const callbackURL = process.env.GOOGLE_CALLBACK_URL
-  || `${String(process.env.domainIp || '').replace(/\/$/, '')}/api/admins/auth/google/callback`;
-const adminAppUrl = String(process.env.ADMIN_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-const configured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && callbackURL.startsWith('http'));
+const stripTrailingSlash = (value) => String(value || '').trim().replace(/\/$/, '');
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultApiUrl = isProduction ? 'https://api.jntugv.edu.in' : 'http://localhost:8888';
+const defaultAdminAppUrl = isProduction ? 'https://admin.jntugv.edu.in' : 'http://localhost:3001';
+const apiBaseUrl = stripTrailingSlash(process.env.domainIp || process.env.API_BASE_URL || defaultApiUrl);
+const callbackURL = stripTrailingSlash(
+  process.env.GOOGLE_CALLBACK_URL || `${apiBaseUrl}/api/admins/auth/google/callback`,
+);
+const adminAppUrl = stripTrailingSlash(process.env.ADMIN_APP_URL || defaultAdminAppUrl);
+const configured = Boolean(
+  process.env.GOOGLE_CLIENT_ID &&
+  process.env.GOOGLE_CLIENT_SECRET &&
+  callbackURL.startsWith('http')
+);
 
 if (configured) {
   passport.use(new GoogleStrategy({
@@ -27,58 +37,65 @@ exports.start = (req, res, next) => {
   if (!configured) {
     return res.status(503).json({ message: 'Google login is not configured' });
   }
-  passport.authenticate('google', {
+
+  const authOptions = {
     scope: ['profile', 'email'],
-    hd: organizationDomain,
     session: false,
-  })(req, res, next);
+  };
+
+  if (organizationDomain) {
+    authOptions.hd = organizationDomain;
+  }
+
+  return passport.authenticate('google', authOptions)(req, res, next);
 };
 
 exports.callback = (req, res, next) => {
   if (!configured) return redirectFailure(res, 'not_configured');
 
-  passport.authenticate('google', { session: false }, async (error, profile) => {
-    if (error || !profile) return redirectFailure(res, 'authentication_failed');
+  return passport.authenticate('google', { session: false }, async (error, profile) => {
+    if (error || !profile) {
+      return redirectFailure(res, 'authentication_failed');
+    }
 
     const identity = verifiedOrganizationIdentity(profile);
-    if (!identity) {
+    if (!identity || !identity.email || !identity.subject) {
       return redirectFailure(res, 'organizational_email_required');
     }
+
     const { email, subject } = identity;
 
-    connection.query(
-      `SELECT a.id, a.name, a.username, a.role, a.google_sub
-       FROM admins a
-       INNER JOIN admin_email_allowlist w ON w.email = LOWER(TRIM(a.username)) AND w.enabled = TRUE
-       WHERE LOWER(TRIM(a.username)) = ?
-       LIMIT 1`,
-      [email],
-      async (queryError, rows) => {
-        if (queryError) {
-          console.error('Google login account lookup failed:', queryError.message);
-          return redirectFailure(res, 'server_error');
-        }
-        if (!rows.length) return redirectFailure(res, 'not_allowlisted');
+    try {
+      const [rows] = await connection.promise().query(
+        `SELECT a.id, a.name, a.username, a.role, a.google_sub
+         FROM admins a
+         INNER JOIN admin_email_allowlist w ON w.email = LOWER(TRIM(a.username)) AND w.enabled = TRUE
+         WHERE LOWER(TRIM(a.username)) = ?
+         LIMIT 1`,
+        [email],
+      );
 
-        const admin = rows[0];
-        if (admin.google_sub && admin.google_sub !== subject) {
-          return redirectFailure(res, 'account_identity_changed');
-        }
+      if (!rows.length) {
+        return redirectFailure(res, 'not_allowlisted');
+      }
 
-        try {
-          if (!admin.google_sub) {
-            await connection.promise().execute(
-              'UPDATE admins SET google_sub = ? WHERE id = ? AND google_sub IS NULL',
-              [subject, admin.id],
-            );
-          }
-          await establishAdminSession(req, admin);
-          res.redirect(`${adminAppUrl}/dashboard`);
-        } catch (sessionError) {
-          console.error('Google login session creation failed:', sessionError.message);
-          redirectFailure(res, 'server_error');
-        }
-      },
-    );
+      const admin = rows[0];
+      if (admin.google_sub && admin.google_sub !== subject) {
+        return redirectFailure(res, 'account_identity_changed');
+      }
+
+      if (!admin.google_sub) {
+        await connection.promise().execute(
+          'UPDATE admins SET google_sub = ? WHERE id = ? AND google_sub IS NULL',
+          [subject, admin.id],
+        );
+      }
+
+      await establishAdminSession(req, admin);
+      return res.redirect(`${adminAppUrl}/dashboard`);
+    } catch (sessionError) {
+      console.error('Google login failed:', sessionError.message || sessionError);
+      return redirectFailure(res, 'server_error');
+    }
   })(req, res, next);
 };

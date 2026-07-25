@@ -1,59 +1,156 @@
-const con = require("../config");
+const con = require('../config');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
-const express = require('express');
-const cors = require("cors");
-
-const session = require('express-session');
-const bodyparser = require('body-parser');
-const cookieparser = require('cookie-parser');
-
-const app = express();
 const { normalizeEmail, isOrganizationEmail } = require('./emailPolicy');
 const { establishAdminSession } = require('./adminSession');
 
-app.use(express.json());
-app.use(cors());
+async function upsertGoogleAdmin({ googleSub, username, name, role = 'Admin' }) {
+  if (!googleSub) {
+    throw new Error('googleSub is required');
+  }
 
-// app.use(cors({
-//   origin :["http://localhost:3000"],
-//   methods :["GET","POST"],
-//   credentials : true,
-// }))
+  const db = con.promise();
+  const normalizedUsername = normalizeEmail(String(username || '').trim()) || String(username || '').trim();
+  const safeName = String(name || '').trim() || 'Admin';
+  const safeRole = String(role || 'Admin').trim() || 'Admin';
 
-// app.use(cookieparser())
-// app.use(bodyparser.urlencoded({extended:true}));
+  await db.execute(
+    `INSERT INTO admins (google_sub, username, name, role)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       username = VALUES(username),
+       name = VALUES(name),
+       role = VALUES(role)`,
+    [googleSub, normalizedUsername, safeName, safeRole]
+  );
 
-// app.use(session({
-//   key : "adminrole",
-//   secret : "admins",
-//   resave : false,
-//   saveUninitialized : false,
-//   cookie:{
-//     expires: 60*60*24,
-//   },
-// }));
+  const [rows] = await db.execute(
+    `SELECT id, role, name, username, password, google_sub
+     FROM admins
+     WHERE google_sub = ?
+     LIMIT 1`,
+    [googleSub]
+  );
+
+  return rows[0];
+}
+
+exports.upsertGoogleAdmin = upsertGoogleAdmin;
+
+function extractGoogleIdentity(req) {
+  const body = req.body || {};
+
+  const googleSub = [
+    body.googleSub,
+    body.google_sub,
+    body.googleId,
+    body.google_id,
+    body.sub,
+    body.user?.googleSub,
+    body.user?.google_sub,
+    body.user?.sub,
+    body.profile?.sub,
+    body.profile?.googleSub,
+    body.profile?.google_sub,
+    body.profileObj?.googleId,
+    body.profileObj?.google_sub,
+    body.profileObj?.sub,
+  ].find(v => v !== undefined && v !== null && String(v).trim() !== '');
+
+  if (!googleSub) {
+    return null;
+  }
+
+  return {
+    googleSub: String(googleSub).trim(),
+    username: String(
+      body.email ||
+      body.username ||
+      body.user?.email ||
+      body.user?.username ||
+      body.profileObj?.email ||
+      ''
+    ).trim(),
+    name: String(
+      body.name ||
+      body.user?.name ||
+      body.user?.fullName ||
+      body.profileObj?.name ||
+      body.profileObj?.displayName ||
+      ''
+    ).trim(),
+    role: String(body.role || 'Admin').trim() || 'Admin',
+  };
+}
+
+function shouldHandleGoogleLogin(req) {
+  const candidates = [
+    req.originalUrl || '',
+    req.url || '',
+    req.path || '',
+    req.baseUrl || '',
+    req.body?.redirect,
+    req.body?.page,
+    req.body?.returnTo,
+    req.query?.redirect,
+    req.query?.page,
+    req.query?.returnTo,
+    req.headers?.referer || '',
+  ].filter(Boolean);
+
+  const combined = candidates.join(' ').toLowerCase();
+
+  const allowedPatterns = [
+    '/gallery-overview',
+    '/galleryoverview',
+    '/admin/gallery-overview',
+    '/dashboard/gallery',
+    '/gallery',
+  ];
+
+  return allowedPatterns.some((p) => combined.includes(p));
+}
 
 exports.login = async (req, res) => {
   try {
+    const googleIdentity = extractGoogleIdentity(req);
+
+    if (googleIdentity?.googleSub && shouldHandleGoogleLogin(req)) {
+      const admin = await upsertGoogleAdmin({
+        googleSub: googleIdentity.googleSub,
+        username: googleIdentity.username,
+        name: googleIdentity.name,
+        role: googleIdentity.role,
+      });
+
+      const user = await establishAdminSession(req, admin);
+      return res.json({
+        islogin: true,
+        role: user.role,
+        admin: user.name,
+        email: user.email,
+        username: user.email,
+      });
+    }
+
     const credentials = req.body.credentials || {};
     const identifier = String(credentials.username || '').trim().toLowerCase();
     const password = String(credentials.password || '');
+
     if (!identifier || !password) {
       return res.status(400).json({ islogin: false, message: 'Login credentials are required' });
     }
 
     const db = con.promise();
     const isEmailLogin = identifier.includes('@');
+
     if (isEmailLogin && !isOrganizationEmail(normalizeEmail(identifier))) {
-      return res.status(403).json({
-        islogin: false,
-        message: 'Invalid login credentials',
-      });
+      return res.status(403).json({ islogin: false, message: 'Invalid login credentials' });
     }
 
     let rows = [];
     let sourceTable = 'admins';
+
     if (isEmailLogin) {
       [rows] = await db.execute(
         `SELECT a.id, a.role, a.password, a.name, LOWER(TRIM(a.username)) AS username
@@ -85,6 +182,7 @@ exports.login = async (req, res) => {
           const roleExpression = columnNames.has('role')
             ? "COALESCE(NULLIF(role, ''), 'Admin') AS role"
             : "'Admin' AS role";
+
           [rows] = await db.execute(
             `SELECT ${idExpression},
                     ${roleExpression},
@@ -122,7 +220,7 @@ exports.login = async (req, res) => {
     }
 
     const user = await establishAdminSession(req, admin);
-    res.json({
+    return res.json({
       islogin: true,
       role: user.role,
       admin: user.name,
@@ -130,8 +228,8 @@ exports.login = async (req, res) => {
       username: user.email,
     });
   } catch (error) {
-    console.error('Password login failed:', error.message);
-    res.status(500).json({ islogin: false, message: 'Unable to log in' });
+    console.error('Login failed:', error.message);
+    return res.status(500).json({ islogin: false, message: 'Unable to log in' });
   }
 };
 

@@ -7,6 +7,8 @@ const extensionsByMime = {
   'image/webp': '.webp',
   'image/gif': '.gif',
   'application/pdf': '.pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/msword': '.doc',
 };
 
 const safeFilename = (file) => {
@@ -17,6 +19,12 @@ const safeFilename = (file) => {
 
 const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const notificationMimeTypes = new Set([...imageMimeTypes, 'application/pdf']);
+const documentMimeTypes = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+]);
+const pressNoteMimeTypes = new Set([...imageMimeTypes, ...documentMimeTypes]);
 
 const fileFilterFor = (allowedTypes) => (req, file, callback) => {
   const allowed = allowedTypes.has(file.mimetype);
@@ -36,4 +44,6 @@ module.exports = {
   safeEventName,
   imageFileFilter: fileFilterFor(imageMimeTypes),
   notificationFileFilter: fileFilterFor(notificationMimeTypes),
+  documentFileFilter: fileFilterFor(documentMimeTypes),
+  pressNoteFileFilter: fileFilterFor(pressNoteMimeTypes),
 };

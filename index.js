@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const app = express();
 app.disable('x-powered-by');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // Routes Import
 const schemas = require("./Schemas/AllSchemas");
@@ -16,6 +16,8 @@ const affliatedColleges = require("./routes/affliated_colleges_routes/AffliatedC
 const results = require("./routes/results_routes/ResultsRoutes");
 const gallery = require("./routes/gallery_routes/gallery_routes");
 const directors = require('./routes/directors_routes/DirectorsRoutes');
+const siteContent = require('./routes/site_routes/SiteContentRoutes');
+const pressNotes = require('./routes/press_notes_routes/PressNotesRoutes');
 
 // Middleware Imports
 const session = require("express-session");
@@ -24,6 +26,11 @@ const bodyparser = require("body-parser");
 const cookieparser = require("cookie-parser");
 const con = require("./apis/config");
 const MySQLSessionStore = require('./middleware/MySQLSessionStore');
+
+const adminRoutes = require("./routes/adminRoutes");
+const webadminRoutes = require("./routes/webadminRoutes");
+const developerRoutes = require("./routes/developerRoutes");
+
 
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET is required in production');
@@ -102,6 +109,7 @@ app.use("/media", express.static("./storage/notifications"));
 app.use("/dmc", express.static("./storage/dmc"));
 app.use("/events", express.static("./storage/dmc/events"));
 app.use("/gallery/image", express.static("./storage/gallery"));
+app.use("/press-notes", express.static("./storage/press_notes", { dotfiles: 'deny', index: false }));
 app.use('/director-images', express.static('./storage/directors', { dotfiles: 'deny', index: false }));
 const resultsDirectory = path.resolve(
   process.env.RESULTS_DIR || path.join(__dirname, '..', 'Controllers', 'public', 'Storage', 'Results')
@@ -118,6 +126,14 @@ app.use("/api/gallery", gallery);
 app.use("/api/affliated-colleges", affliatedColleges);
 app.use("/api/results", results);
 app.use('/api/directors', directors);
+app.use('/api/site', siteContent);
+app.use('/api/press-notes', pressNotes);
+
+
+
+app.use("/admin", adminRoutes);
+app.use("/webadmin", webadminRoutes);
+app.use("/developer", developerRoutes);
 
 app.get('/', (req, res) => {
   res.json('Hey JNTUGV Devops API Working Successfully');

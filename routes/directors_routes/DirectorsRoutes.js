@@ -19,7 +19,7 @@ const upload = multer({
   fileFilter: imageFileFilter,
 }).single('photo');
 
-router.get('/all-directors', adminOnly, directors.all);
+router.get('/all-directors', directors.all);
 router.post('/add-director', adminOnly, upload, directors.add);
 router.put('/update-director/:id', adminOnly, upload, directors.update);
 router.delete('/delete-director/:id', adminOnly, directors.remove);

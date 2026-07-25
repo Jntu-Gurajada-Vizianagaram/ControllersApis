@@ -31,7 +31,7 @@ exports.insert_img = (req, res) => {
   if (!file) {
     return res.status(400).json({ error: 'An image file is required' });
   }
-  const values = [int, dmcupload.date, dmcupload.title, file.filename, dmcupload.description, dmcupload.submitted, dmcupload.admin_approval, dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
+  const values = [int, dmcupload.date, dmcupload.title, file.filename, dmcupload.description, dmcupload.submitted, 'accepted', dmcupload.carousel_scrolling, dmcupload.gallery_scrolling];
 
   connection.query(sql, values, (err, result) => {
     if (err) {
@@ -132,7 +132,7 @@ exports.carousel_imgs = (req, res) => {
 };
 
 exports.carousel_imgs_preview = (req, res) => {
-  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='pending' AND carousel_scrolling='yes' ORDER BY id AND admin_approval DESC";
+  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='accepted' AND carousel_scrolling='yes' ORDER BY id DESC";
 
   connection.query(sql, (err, results) => {
     if (err) {
@@ -157,7 +157,7 @@ exports.carousel_imgs_preview = (req, res) => {
 exports.remove_from_carousel = (req, res) => {
   const img_id = req.params.imgid;
   const query1 = "SELECT * FROM dmc_upload WHERE id = ? AND carousel_scrolling = 'yes'";
-  const query2 = "UPDATE dmc_upload SET carousel_scrolling = 'no', admin_approval = 'pending' WHERE id = ?";
+  const query2 = "UPDATE dmc_upload SET carousel_scrolling = 'no', admin_approval = 'accepted' WHERE id = ?";
   con.query(query1, [img_id], (err, result1) => {
     if (err) {
       console.log(err);
@@ -176,7 +176,7 @@ exports.remove_from_carousel = (req, res) => {
 exports.add_to_carousel = (req, res) => {
   const img_id = req.params.imgid;
   const query1 = "SELECT * FROM dmc_upload WHERE id = ? AND carousel_scrolling = 'no'";
-  const query2 = "UPDATE dmc_upload SET carousel_scrolling = 'yes', admin_approval = 'pending' WHERE id = ?";
+  const query2 = "UPDATE dmc_upload SET carousel_scrolling = 'yes', admin_approval = 'accepted' WHERE id = ?";
   con.query(query1, [img_id], (err, result1) => {
     if (err) {
       console.log(err);
@@ -234,7 +234,7 @@ exports.update_carousel_image = (req, res) => {
       file_path || existingData.file_path,
       dmcupload.description || existingData.description,
       dmcupload.submitted || existingData.submitted,
-      dmcupload.admin_approval || existingData.admin_approval,
+      'accepted',
       dmcupload.carousel_scrolling || existingData.carousel_scrolling,
       dmcupload.gallery_scrolling || existingData.gallery_scrolling,
       uploadId
@@ -363,7 +363,7 @@ exports.add_event_photos = async (req, res) => {
       events_details.event_name,
       events_details.description,
       events_details.added_by,
-      events_details.admin_approval,
+      'accepted',
       events_details.main_page
     ];
     

@@ -8,10 +8,10 @@ const deleteOnly = requireRoles('Admin')
 
 //------APIS for admin console-------//
 
-router.get('/allimages', webEditor, webadmin.all_imgs);
+router.get('/allimages', webadmin.all_imgs);
 router.post('/addimage', webEditor, webadmin.dmcUpload, webadmin.insert_img)
 router.delete('/removeimage/:id', deleteOnly, webadmin.delete_img);
-router.get('/carousel-images-preview', webEditor, webadmin.carousel_imgs_preview);
+router.get('/carousel-images-preview', webadmin.carousel_imgs_preview);
 router.get('/carousel-images',webadmin.carousel_imgs); //api for frontend to get carousel images
 router.patch('/remove-from-carousel/:imgid', webEditor, webadmin.remove_from_carousel);
 router.patch('/add-to-carousel/:imgid', webEditor, webadmin.add_to_carousel);
@@ -23,13 +23,13 @@ router.get('/get-event-photos',webadmin.get_events_photos) //api for frontend to
 router.delete('/delete-event-photos/:id', deleteOnly, webadmin.delete_event_photos);
 //router.patch('/update-event-photos/:id',webadmin.update_event_photos);
 //------Event Photos---Request APIS---//
-router.get('/webadmin-event-requests', adminOnly, webadmin.webadmin_event_requests);
+router.get('/webadmin-event-requests', webadmin.webadmin_event_requests);
 router.put('/webadmin-event-accept-request/:id', adminOnly, webadmin.webadmin_event_request_accept);
 router.put('/webadmin-event-deny-request/:id', adminOnly, webadmin.webadmin_event_request_deny);
 
 
 //---Request APIS---//
-router.get('/webadmin-requests', adminOnly, webadmin.webadmin_requests);
+router.get('/webadmin-requests', webadmin.webadmin_requests);
 router.put('/webadmin-accept-request/:id', adminOnly, webadmin.webadmin_request_accept);
 router.put('/webadmin-deny-request/:id', adminOnly, webadmin.webadmin_request_deny);
 

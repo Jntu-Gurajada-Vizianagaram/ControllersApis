@@ -51,7 +51,7 @@ exports.insert_event = (req, res) => {
   const file = req.file ? req.file.filename : '';
   const int = 0;
     const sql = 'INSERT INTO notification_updates (date, title, file_path, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-  const values = [update.date, update.title, file, update.external_txt, update.external_lnk, update.main_page, update.scrolling, update.update_type, update.update_status, update.submitted_by, update.admin_approval];
+  const values = [update.date, update.title, file, update.external_txt, update.external_lnk, update.main_page, update.scrolling, update.update_type, update.update_status, update.submitted_by, 'accepted'];
 
   connection.query(sql, values, (err, result) => {
     if (err) {
@@ -129,7 +129,7 @@ exports.update_event = (req, res) => {
 
       let oldFilePath = results[0].file_path;
       let sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = ?, scrolling = ?, update_type = ?, update_status = ?, submitted_by = ?, admin_approval = ?`;
-      let values = [date, title, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval];
+      let values = [date, title, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, 'accepted'];
 
       if (req.file) {
           sql += `, file_path = ?`;
@@ -301,7 +301,22 @@ exports.get_notifiactions = (req, res) => {
 };
 
 exports.get_scrolling_notifiactions = (req, res) => {
-  const sql = "SELECT * FROM notification_updates WHERE update_status = 'update' AND scrolling = 'yes' ORDER BY id DESC";
+  const sql = `
+    SELECT *
+    FROM notification_updates
+    WHERE update_status = 'update'
+      AND scrolling = 'yes'
+      AND admin_approval = 'accepted'
+    ORDER BY
+      CASE
+        WHEN LOWER(title) LIKE '%convocation%' THEN 0
+        WHEN LOWER(title) LIKE '%urgent%' THEN 1
+        WHEN LOWER(title) LIKE '%important%' THEN 2
+        ELSE 3
+      END,
+      id DESC
+    LIMIT 30
+  `;
 
   connection.query(sql, (err, results) => {
     if (err) {
@@ -310,6 +325,6 @@ exports.get_scrolling_notifiactions = (req, res) => {
       return;
     }
 
-    res.json(results);
+    res.json(mapNotificationRows(results));
   });
 };

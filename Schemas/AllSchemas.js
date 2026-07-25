@@ -8,6 +8,9 @@ const gallery_requests_table =require('./galleryRequestsSchema')
 const directors_table = require('./DirectorsSchema')
 const admin_email_allowlist = require('./AdminEmailAllowlistSchema')
 const admin_profile_schema = require('./AdminProfileSchema')
+const site_nav_schema = require('./SiteNavSchema')
+const youtube_videos_schema = require('./YoutubeVideosSchema')
+const press_notes_schema = require('./PressNotesSchema')
 
 exports.allSchemas = ()=>{
     
@@ -21,5 +24,8 @@ exports.allSchemas = ()=>{
     directors_table.directors_table()
     admin_email_allowlist.admin_email_allowlist_table()
     admin_profile_schema.admin_profile_table()
+    site_nav_schema.site_nav_table()
+    youtube_videos_schema.youtube_videos_table()
+    press_notes_schema.press_notes_table()
 
 }
