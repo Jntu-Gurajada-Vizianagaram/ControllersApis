@@ -18,6 +18,7 @@ const gallery = require("./routes/gallery_routes/gallery_routes");
 const directors = require('./routes/directors_routes/DirectorsRoutes');
 const siteContent = require('./routes/site_routes/SiteContentRoutes');
 const pressNotes = require('./routes/press_notes_routes/PressNotesRoutes');
+const websiteRoutes = require('./routes/website_routes/WebsiteRoutes');
 
 // Middleware Imports
 const session = require("express-session");
@@ -126,6 +127,7 @@ app.use("/api/gallery", gallery);
 app.use("/api/affliated-colleges", affliatedColleges);
 app.use("/api/results", results);
 app.use('/api/directors', directors);
+app.use('/api/website', websiteRoutes);
 app.use('/api/site', siteContent);
 app.use('/api/press-notes', pressNotes);
 
