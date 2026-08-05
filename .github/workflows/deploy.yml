@@ -1,0 +1,136 @@
+name: Production Deploy - ControllersApis
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: controllersapis-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy API to Production Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Syntax Check
+        run: |
+          node --check index.js
+          node --check Schemas/SiteNavSchema.js
+          node --check routes/website_routes/WebsiteRoutes.js
+
+      - name: Deploy Application via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            APP_DIR="${{ secrets.API_APP_DIR }}"
+            PM2_NAME="${{ secrets.API_PM2_NAME }}"
+            HEALTH_URL_LOCAL="${{ secrets.API_HEALTH_URL_LOCAL }}"
+            HEALTH_URL_PUBLIC="${{ secrets.API_HEALTH_URL_PUBLIC }}"
+
+            if [ -z "$APP_DIR" ]; then
+              APP_DIR="/home/jntugv-api/htdocs/api.jntugv.edu.in/ControllersApis"
+            fi
+
+            if [ -z "$PM2_NAME" ]; then
+              PM2_NAME="MAIN API"
+            fi
+
+            if [ -z "$HEALTH_URL_LOCAL" ]; then
+              HEALTH_URL_LOCAL="http://127.0.0.1:8888/api/health"
+            fi
+
+            if [ -z "$HEALTH_URL_PUBLIC" ]; then
+              HEALTH_URL_PUBLIC="https://api.jntugv.edu.in/api/health"
+            fi
+
+            echo "======================================="
+            echo "Starting ControllersApis deployment"
+            echo "======================================="
+
+            cd "$APP_DIR"
+
+            if [ ! -f ".env" ]; then
+              echo "Production .env is missing in $APP_DIR"
+              exit 1
+            fi
+
+            echo "Checking required production environment keys"
+            for key in NODE_ENV domainIp GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_CALLBACK_URL ADMIN_APP_URL CORS_ORIGINS SESSION_SECRET DB_USER DB_PASSWORD DB_NAME DB_HOST DB_PORT; do
+              if ! grep -q "^${key}=" .env; then
+                echo "Missing required .env key: $key"
+                exit 1
+              fi
+            done
+
+            echo "Fetching latest code"
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+
+            echo "Preserving runtime files and cleaning repository"
+            git clean -fd -e .env -e .env.local -e storage/
+
+            echo "Installing production dependencies"
+            npm ci --omit=dev
+
+            echo "Running syntax checks on server"
+            node --check index.js
+            node --check Schemas/SiteNavSchema.js
+            node --check routes/website_routes/WebsiteRoutes.js
+
+            echo "Reloading PM2 process: $PM2_NAME"
+            pm2 reload "$PM2_NAME" --update-env || pm2 restart "$PM2_NAME" --update-env || pm2 start index.js --name "$PM2_NAME" --update-env
+            pm2 save
+
+            echo "Waiting for API startup"
+            sleep 8
+
+            echo "Running health checks"
+            LOCAL_STATUS=0
+            PUBLIC_STATUS=0
+
+            if curl --silent --fail "$HEALTH_URL_LOCAL" > /dev/null; then
+              echo "Local health check passed"
+              LOCAL_STATUS=1
+            else
+              echo "Local health check failed"
+            fi
+
+            if curl --silent --fail "$HEALTH_URL_PUBLIC" > /dev/null; then
+              echo "Public health check passed"
+              PUBLIC_STATUS=1
+            else
+              echo "Public health check failed"
+            fi
+
+            if [ "$LOCAL_STATUS" -eq 1 ] || [ "$PUBLIC_STATUS" -eq 1 ]; then
+              echo "======================================="
+              echo "ControllersApis deployment successful"
+              echo "======================================="
+            else
+              echo "API health checks failed"
+              pm2 logs "$PM2_NAME" --lines 80 --nostream || true
+              exit 1
+            fi

@@ -137,6 +137,15 @@ app.use("/admin", adminRoutes);
 app.use("/webadmin", webadminRoutes);
 app.use("/developer", developerRoutes);
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'JNTU-GV API',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/', (req, res) => {
   res.json('Hey JNTUGV Devops API Working Successfully');
 });
