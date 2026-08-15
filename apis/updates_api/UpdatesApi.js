@@ -1,6 +1,8 @@
 const multer = require('multer');
 const fs = require('fs');
 const connection = require('../config');
+const { PDFDocument } = require('pdf-lib');
+const QRCode = require('qrcode');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
 const { safeFilename, notificationFileFilter } = require('../../utils/uploads');
@@ -32,8 +34,39 @@ const getPagination = (query = {}, defaults = {}) => {
   return { limit, offset };
 };
 
+const publicMediaLink = (filename) =>
+  filename ? `${api_ip}/media/${encodeURIComponent(filename)}` : '';
+
+const appendQrToStoredPdf = async (filename) => {
+  if (!filename || !filename.toLowerCase().endsWith('.pdf')) return;
+
+  const filePath = `./storage/notifications/${filename}`;
+  const pdfBytes = await fs.promises.readFile(filePath);
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const [firstPage] = pdfDoc.getPages();
+  if (!firstPage) return;
+
+  const qrPng = await QRCode.toBuffer(publicMediaLink(filename), {
+    errorCorrectionLevel: 'H',
+    margin: 1,
+    width: 256,
+  });
+  const qrImage = await pdfDoc.embedPng(qrPng);
+  const { width } = firstPage.getSize();
+  const qrSize = 75;
+
+  firstPage.drawImage(qrImage, {
+    x: width - qrSize - 10,
+    y: 10,
+    width: qrSize,
+    height: qrSize,
+  });
+
+  await fs.promises.writeFile(filePath, await pdfDoc.save());
+};
+
 const mapNotificationRows = (results) => results.map(eve => {
-  const filelink = eve.file_path ? `${api_ip}/media/${eve.file_path}` : '';
+  const filelink = publicMediaLink(eve.file_path);
   const outdate = new Date(eve.date);
 
   return {
@@ -45,12 +78,20 @@ const mapNotificationRows = (results) => results.map(eve => {
   };
 });
 
-exports.insert_event = (req, res) => {
+exports.insert_event = async (req, res) => {
   
   const update = req.body;
   const file = req.file ? req.file.filename : '';
-  const int = 0;
-    const sql = 'INSERT INTO notification_updates (date, title, file_path, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  try {
+    await appendQrToStoredPdf(file);
+  } catch (err) {
+    if (file) fs.promises.unlink(`./storage/notifications/${file}`).catch(() => {});
+    console.error('Error appending QR code to notification PDF:', err);
+    res.status(500).json({ error: 'Error adding QR code to PDF' });
+    return;
+  }
+
+  const sql = 'INSERT INTO notification_updates (date, title, file_path, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
   const values = [update.date, update.title, file, update.external_txt, update.external_lnk, update.main_page, update.scrolling, update.update_type, update.update_status, update.submitted_by, 'accepted'];
 
   connection.query(sql, values, (err, result) => {
@@ -131,41 +172,43 @@ exports.update_event = (req, res) => {
       let sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = ?, scrolling = ?, update_type = ?, update_status = ?, submitted_by = ?, admin_approval = ?`;
       let values = [date, title, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, 'accepted'];
 
-      if (req.file) {
+      const continueUpdate = () => {
+        if (req.file) {
           sql += `, file_path = ?`;
           values.push(req.file.filename);
-      }
+        }
 
-      sql += ` WHERE id = ?`;
-      values.push(updateId);
-      connection.query(sql, values, (err, result) => {
+        sql += ` WHERE id = ?`;
+        values.push(updateId);
+        connection.query(sql, values, (err, result) => {
           if (err) {
               res.status(500).json({ error: 'Error updating event' });
               return;
           }
           if (req.file && oldFilePath && req.file.filename !== oldFilePath) {
               const oldFileFullPath = `./storage/notifications/${oldFilePath}`;
-              fs.access(oldFileFullPath, fs.constants.F_OK, (err) => {
-                  if (err) {
-                      //console.error('Old file does not exist:', oldFileFullPath);
-                      return;
-                  }
-
-                  fs.unlink(oldFileFullPath, (err) => {
-                      if (err) {
-                          //console.error('Error deleting old file:', err);
-                          res.status(500).json({error:'File Deletion Error Occured..'});
-                          return;
-                      } else {
-                         res.status(200).status({success:"NEW File Uploaded sucessfully"});
-                         return;
-                      }
-                  });
+              fs.promises.unlink(oldFileFullPath).catch((unlinkErr) => {
+                if (unlinkErr.code !== 'ENOENT') {
+                  console.error('Error deleting old notification file:', unlinkErr);
+                }
               });
           }
 
           res.json({ message: 'Event updated successfully' });
-      });
+        });
+      };
+
+      if (req.file) {
+        appendQrToStoredPdf(req.file.filename)
+          .then(continueUpdate)
+          .catch((err) => {
+            fs.promises.unlink(`./storage/notifications/${req.file.filename}`).catch(() => {});
+            console.error('Error appending QR code to notification PDF:', err);
+            res.status(500).json({ error: 'Error adding QR code to PDF' });
+          });
+      } else {
+        continueUpdate();
+      }
   });
 };
 
@@ -232,7 +275,7 @@ exports.all_updater_events = (req, res) => {
       return;
     }
     const final_events = results.map(eve => {
-      const filelink = eve.file_path ?  `${api_ip}/media/${eve.file_path}`: '';
+      const filelink = publicMediaLink(eve.file_path);
       const outdate = new Date(eve.date);
 
       return {
@@ -258,7 +301,7 @@ exports.update_requests = (req, res) => {
       return;
     }
     const final_events = results.map(eve => {
-      const filelink = eve.file_path ? `${api_ip}/media/${eve.file_path}`: '';
+      const filelink = publicMediaLink(eve.file_path);
       const outdate = new Date(eve.date);
 
       return {
@@ -284,7 +327,7 @@ exports.get_notifiactions = (req, res) => {
       return;
     }
     const final_events = results.map(eve => {
-      const filelink = eve.file_path ? `${api_ip}/media/${eve.file_path}`: '';
+      const filelink = publicMediaLink(eve.file_path);
       const outdate = new Date(eve.date);
 
       return {

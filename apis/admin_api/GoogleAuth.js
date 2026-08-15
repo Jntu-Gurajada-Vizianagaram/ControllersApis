@@ -35,6 +35,8 @@ const redirectFailure = (res, code) => {
 
 exports.start = (req, res, next) => {
   if (!configured) {
+    const acceptsHtml = req.accepts(['html', 'json']) === 'html';
+    if (acceptsHtml) return redirectFailure(res, 'not_configured');
     return res.status(503).json({ message: 'Google login is not configured' });
   }
 

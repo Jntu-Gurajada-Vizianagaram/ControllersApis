@@ -6,10 +6,42 @@ const normalizeBoolean = (value, fallback = false) => {
   return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase());
 };
 
+const shouldOpenNewTab = (path = '') =>
+  String(path).startsWith('http') || /\.(pdf|docx?|xlsx?|pptx?)($|[?#])/i.test(String(path));
+
+const resolveParentId = (parentId) => {
+  const parsed = Number.parseInt(parentId, 10);
+  return parsed > 0 ? parsed : null;
+};
+
+const slugifyKey = (value = '') =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 90);
+
+const normalizeReferenceKey = (value, label, path) => {
+  const manual = String(value || '').trim().toLowerCase();
+  if (manual) return manual.replace(/[^a-z0-9._:-]+/g, '-').slice(0, 120);
+  return `nav.${slugifyKey(path && path !== '/' ? path : label) || 'item'}`;
+};
+
+const normalizeCmsSection = (value, path = '') => {
+  const normalized = String(value || '').trim().toLowerCase().replace(/[^a-z0-9_:-]+/g, '_');
+  if (normalized) return normalized.slice(0, 80);
+  if (/^https?:\/\//i.test(String(path))) return 'external';
+  if (/\.(pdf|docx?|xlsx?|pptx?)($|[?#])/i.test(String(path))) return 'document';
+  return 'static_page';
+};
+
 const mapNavRow = (row) => ({
   id: row.id,
   label: row.label,
   path: row.path,
+  reference_key: row.reference_key,
+  cms_section: row.cms_section,
   icon_key: row.icon_key,
   parent_id: row.parent_id,
   sort_order: row.sort_order,
@@ -20,7 +52,7 @@ const mapNavRow = (row) => ({
 
 exports.public_navbar = (req, res) => {
   const sql = `
-    SELECT id, label, path, icon_key, parent_id, sort_order, is_enabled, is_highlighted, open_new_tab
+    SELECT id, label, path, reference_key, cms_section, icon_key, parent_id, sort_order, is_enabled, is_highlighted, open_new_tab
     FROM site_nav_items
     WHERE is_enabled = TRUE
     ORDER BY COALESCE(parent_id, id), parent_id IS NOT NULL, sort_order, id
@@ -37,7 +69,7 @@ exports.public_navbar = (req, res) => {
 
 exports.admin_navbar = (req, res) => {
   const sql = `
-    SELECT id, label, path, icon_key, parent_id, sort_order, is_enabled, is_highlighted, open_new_tab
+    SELECT id, label, path, reference_key, cms_section, icon_key, parent_id, sort_order, is_enabled, is_highlighted, open_new_tab
     FROM site_nav_items
     ORDER BY COALESCE(parent_id, id), parent_id IS NOT NULL, sort_order, id
   `;
@@ -55,6 +87,8 @@ exports.create_nav_item = (req, res) => {
   const {
     label,
     path,
+    reference_key = '',
+    cms_section = '',
     icon_key = 'link',
     parent_id = null,
     sort_order = 0,
@@ -64,19 +98,24 @@ exports.create_nav_item = (req, res) => {
     return res.status(400).json({ error: 'Label and path are required' });
   }
 
+  const normalizedReferenceKey = normalizeReferenceKey(reference_key, label, path);
+  const normalizedCmsSection = normalizeCmsSection(cms_section, path);
+
   connection.query(
     `INSERT INTO site_nav_items
-      (label, path, icon_key, parent_id, sort_order, is_enabled, is_highlighted, open_new_tab)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (label, path, reference_key, cms_section, icon_key, parent_id, sort_order, is_enabled, is_highlighted, open_new_tab)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       String(label).trim(),
       String(path).trim(),
+      normalizedReferenceKey,
+      normalizedCmsSection,
       String(icon_key || 'link').trim(),
-      parent_id || null,
+      resolveParentId(parent_id),
       Number.parseInt(sort_order, 10) || 0,
       normalizeBoolean(req.body.is_enabled, true),
       normalizeBoolean(req.body.is_highlighted, false),
-      normalizeBoolean(req.body.open_new_tab, String(path).startsWith('http')),
+      normalizeBoolean(req.body.open_new_tab, shouldOpenNewTab(path)) || shouldOpenNewTab(path),
     ],
     (err, result) => {
       if (err) {
@@ -95,6 +134,8 @@ exports.update_nav_item = (req, res) => {
   const {
     label,
     path,
+    reference_key = '',
+    cms_section = '',
     icon_key = 'link',
     parent_id = null,
     sort_order = 0,
@@ -104,20 +145,25 @@ exports.update_nav_item = (req, res) => {
     return res.status(400).json({ error: 'Label and path are required' });
   }
 
+  const normalizedReferenceKey = normalizeReferenceKey(reference_key, label, path);
+  const normalizedCmsSection = normalizeCmsSection(cms_section, path);
+
   connection.query(
     `UPDATE site_nav_items
-     SET label = ?, path = ?, icon_key = ?, parent_id = ?, sort_order = ?,
+     SET label = ?, path = ?, reference_key = ?, cms_section = ?, icon_key = ?, parent_id = ?, sort_order = ?,
          is_enabled = ?, is_highlighted = ?, open_new_tab = ?
      WHERE id = ?`,
     [
       String(label).trim(),
       String(path).trim(),
+      normalizedReferenceKey,
+      normalizedCmsSection,
       String(icon_key || 'link').trim(),
-      parent_id || null,
+      resolveParentId(parent_id) === id ? null : resolveParentId(parent_id),
       Number.parseInt(sort_order, 10) || 0,
       normalizeBoolean(req.body.is_enabled, true),
       normalizeBoolean(req.body.is_highlighted, false),
-      normalizeBoolean(req.body.open_new_tab, String(path).startsWith('http')),
+      normalizeBoolean(req.body.open_new_tab, shouldOpenNewTab(path)) || shouldOpenNewTab(path),
       id,
     ],
     (err, result) => {
@@ -135,13 +181,24 @@ exports.delete_nav_item = (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Invalid navigation item id' });
 
-  connection.query('DELETE FROM site_nav_items WHERE id = ?', [id], (err, result) => {
+  connection.query('SELECT COUNT(*) AS child_count FROM site_nav_items WHERE parent_id = ?', [id], (childErr, rows) => {
+    if (childErr) {
+      console.error('Unable to inspect navigation children:', childErr.message);
+      return res.status(500).json({ error: 'Unable to delete navigation item' });
+    }
+
+    if (Number(rows?.[0]?.child_count || 0) > 0) {
+      return res.status(400).json({ error: 'Move or delete child menu items before deleting this parent item' });
+    }
+
+    connection.query('DELETE FROM site_nav_items WHERE id = ?', [id], (err, result) => {
     if (err) {
       console.error('Unable to delete navigation item:', err.message);
       return res.status(500).json({ error: 'Unable to delete navigation item' });
     }
     if (!result.affectedRows) return res.status(404).json({ error: 'Navigation item not found' });
     res.json({ message: 'Navigation item deleted' });
+    });
   });
 };
 
