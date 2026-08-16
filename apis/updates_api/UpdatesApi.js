@@ -5,14 +5,23 @@ const { PDFDocument } = require('pdf-lib');
 const QRCode = require('qrcode');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
-const { safeFilename, notificationFileFilter } = require('../../utils/uploads');
+const { safeOriginalFilename, notificationFileFilter } = require('../../utils/uploads');
+const {
+  departments,
+  getDepartment,
+  getUpdateType,
+  inferDepartmentCode,
+  normalizeDepartmentCode,
+  normalizeUpdateType,
+} = require('../../utils/updateDepartments');
 fs.mkdirSync('./storage/notifications/', { recursive: true });
+const notificationsDir = './storage/notifications/';
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    return cb(null, './storage/notifications/');
+    return cb(null, notificationsDir);
   },
   filename: (req, file, cb) => {
-    return cb(null, safeFilename(file));
+    return cb(null, safeOriginalFilename(file, notificationsDir));
   }
 });
 
@@ -36,6 +45,38 @@ const getPagination = (query = {}, defaults = {}) => {
 
 const publicMediaLink = (filename) =>
   filename ? `${api_ip}/media/${encodeURIComponent(filename)}` : '';
+
+const toBooleanString = (value) =>
+  ['true', 'yes', '1', true, 1].includes(value) ? 'true' : 'false';
+
+const cleanOptionalDate = (value) => String(value || '').trim() || null;
+
+const getPrefixedTitle = (title, department) => {
+  const rawTitle = String(title || '').trim();
+  const prefix = department.titlePrefix || department.label || department.code;
+  const prefixPattern = new RegExp(`^(${department.code}|${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\s*[-:–—]`, 'i');
+
+  const existingPrefixes = [
+    department.code,
+    department.label,
+    department.titlePrefix,
+    department.code === 'CE' ? 'DE' : '',
+    department.code === 'DAAP' ? 'DAA&P' : '',
+    department.code === 'DRD' ? 'DR&D' : '',
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const titlePrefixPattern = new RegExp(`^(${existingPrefixes.join('|')})\\s*[-:–—]`, 'i');
+
+  if (!rawTitle || titlePrefixPattern.test(rawTitle)) return rawTitle;
+  return `${prefix} - ${rawTitle}`;
+};
+
+const notificationOrderSql = `
+  ORDER BY
+    COALESCE(NULLIF(revised_date, ''), date) DESC,
+    id DESC
+`;
 
 const appendQrToStoredPdf = async (filename) => {
   if (!filename || !filename.toLowerCase().endsWith('.pdf')) return;
@@ -67,14 +108,30 @@ const appendQrToStoredPdf = async (filename) => {
 
 const mapNotificationRows = (results) => results.map(eve => {
   const filelink = publicMediaLink(eve.file_path);
-  const outdate = new Date(eve.date);
+  const department = getDepartment(inferDepartmentCode(eve));
+  const updateType = getUpdateType(eve.update_type, department.code);
+  const effectiveDate = eve.revised_date || eve.date;
+  const displayTitle = getPrefixedTitle(eve.title, department);
 
   return {
-    ...eve,
+    id: eve.id,
+    date: eve.date,
+    revised_date: eve.revised_date || '',
+    expiry_date: eve.expiry_date || '',
+    effective_date: effectiveDate,
+    title: eve.title,
+    display_title: displayTitle,
+    file_path: eve.file_path,
+    external_text: eve.external_text,
+    external_link: eve.external_link,
+    department: department.code,
+    department_label: department.label,
+    department_name: department.name,
+    type_of_update: updateType.code,
+    type_of_update_label: updateType.label,
+    is_static: toBooleanString(eve.is_static) === 'true',
+    submitted_by: eve.submitted_by,
     file_link: filelink,
-    day: outdate.getDate(),
-    month: outdate.toLocaleString('en-US', { month: 'short' }),
-    year: outdate.getFullYear(),
   };
 });
 
@@ -82,6 +139,20 @@ exports.insert_event = async (req, res) => {
   
   const update = req.body;
   const file = req.file ? req.file.filename : '';
+  const department = normalizeDepartmentCode(update.department);
+  const mainPage = 'yes';
+  const scrolling = 'no';
+  const updateType = normalizeUpdateType(update.type_of_update || update.update_type, department);
+  const isStatic = toBooleanString(update.is_static);
+  const expiryDate = cleanOptionalDate(update.expiry_date);
+  const revisedDate = cleanOptionalDate(update.revised_date);
+  const updateStatus = 'update';
+
+  if (isStatic === 'true' && !expiryDate) {
+    res.status(400).json({ error: 'Expiry date is required for static notifications' });
+    return;
+  }
+
   try {
     await appendQrToStoredPdf(file);
   } catch (err) {
@@ -91,8 +162,8 @@ exports.insert_event = async (req, res) => {
     return;
   }
 
-  const sql = 'INSERT INTO notification_updates (date, title, file_path, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-  const values = [update.date, update.title, file, update.external_txt, update.external_lnk, update.main_page, update.scrolling, update.update_type, update.update_status, update.submitted_by, 'accepted'];
+  const sql = 'INSERT INTO notification_updates (date, title, file_path, external_text, external_link, main_page, scrolling, department, update_type, is_static, expiry_date, revised_date, update_status, submitted_by, admin_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  const values = [update.date, update.title, file, update.external_txt, update.external_lnk, mainPage, scrolling, department, updateType, isStatic, expiryDate, revisedDate, updateStatus, update.submitted_by, 'accepted'];
 
   connection.query(sql, values, (err, result) => {
     if (err) {
@@ -149,12 +220,24 @@ exports.delete_event = (req, res) => {
 
 exports.update_event = (req, res) => {
   const updateId = req.params.id;
-  const { date, title, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, admin_approval } = req.body;
+  const { date, title, external_text, external_link, submitted_by } = req.body;
+  const department = normalizeDepartmentCode(req.body.department);
+  const updateType = normalizeUpdateType(req.body.type_of_update || req.body.update_type, department);
+  const isStatic = toBooleanString(req.body.is_static);
+  const expiryDate = cleanOptionalDate(req.body.expiry_date);
+  const revisedDate = cleanOptionalDate(req.body.revised_date);
+  const updateStatus = 'update';
 
   if (!updateId || !date || !title) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
   }
+
+  if (isStatic === 'true' && !expiryDate) {
+      res.status(400).json({ error: 'Expiry date is required for static notifications' });
+      return;
+  }
+
   const selQuery = `SELECT file_path FROM notification_updates WHERE id = ?`;
 
   connection.query(selQuery, [updateId], (err, results) => {
@@ -169,8 +252,8 @@ exports.update_event = (req, res) => {
       }
 
       let oldFilePath = results[0].file_path;
-      let sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = ?, scrolling = ?, update_type = ?, update_status = ?, submitted_by = ?, admin_approval = ?`;
-      let values = [date, title, external_text, external_link, main_page, scrolling, update_type, update_status, submitted_by, 'accepted'];
+      let sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = 'yes', scrolling = 'no', department = ?, update_type = ?, is_static = ?, expiry_date = ?, revised_date = ?, update_status = ?, submitted_by = ?, admin_approval = 'accepted'`;
+      let values = [date, title, external_text, external_link, department, updateType, isStatic, expiryDate, revisedDate, updateStatus, submitted_by];
 
       const continueUpdate = () => {
         if (req.file) {
@@ -212,33 +295,9 @@ exports.update_event = (req, res) => {
   });
 };
 
-exports.update_request_accept = (req, res) => {
-  const update = req.params.id;
-
-  connection.query(`UPDATE notification_updates set admin_approval = 'accepted' WHERE id = ?`, [update], (err, result) => {
-    if (err) {
-      res.status(500).json({ error: `Error in accepting update ${err}` });
-      return;
-    }
-    res.json({ message: 'Update Accepted Successfully' });
-  });
-};
-
-exports.update_request_deny = (req, res) => {
-  const update = req.params.id;
-
-  connection.query(`UPDATE notification_updates set admin_approval = 'denied' WHERE id = ?`, [update], (err, result) => {
-    if (err) {
-      res.status(500).json({ error: `Error in denying update ${err}` });
-      return;
-    }
-    res.json({ message: 'Update Denied Successfully' });
-  });
-};
-
 exports.every_events = (req, res) => {
   const { limit, offset } = getPagination(req.query, { limit: 50, maxLimit: 100 });
-  const sql = "SELECT * FROM notification_updates ORDER BY id DESC LIMIT ? OFFSET ?";
+  const sql = `SELECT * FROM notification_updates ${notificationOrderSql} LIMIT ? OFFSET ?`;
 
   connection.query(sql, [limit, offset], (err, results) => {
     if (err) {
@@ -252,7 +311,7 @@ exports.every_events = (req, res) => {
 
 exports.all_admin_events = (req, res) => {
   const { limit, offset } = getPagination(req.query, { limit: 10, maxLimit: 100 });
-  const sql = "SELECT * FROM notification_updates WHERE submitted_by = 'admin' ORDER BY id DESC LIMIT ? OFFSET ?";
+  const sql = `SELECT * FROM notification_updates WHERE submitted_by = 'admin' ${notificationOrderSql} LIMIT ? OFFSET ?`;
 
   connection.query(sql, [limit, offset], (err, results) => {
     if (err) {
@@ -266,7 +325,7 @@ exports.all_admin_events = (req, res) => {
 
 exports.all_updater_events = (req, res) => {
   const adminid = req.params.adminid;
-  const sql = `SELECT * FROM notification_updates WHERE submitted_by = ? ORDER BY id DESC`;
+  const sql = `SELECT * FROM notification_updates WHERE submitted_by = ? ${notificationOrderSql}`;
 
   connection.query(sql, [adminid], (err, results) => {
     if (err) {
@@ -274,51 +333,12 @@ exports.all_updater_events = (req, res) => {
       res.status(500).json({ error: `Error retrieving data${err}` });
       return;
     }
-    const final_events = results.map(eve => {
-      const filelink = publicMediaLink(eve.file_path);
-      const outdate = new Date(eve.date);
-
-      return {
-        ...eve,
-        file_link: filelink,
-        day: outdate.getDate(),
-        month: outdate.toLocaleString('en-US', { month: 'short' }),
-        year: outdate.getFullYear(),
-      };
-    });
-
-    res.json(final_events);
-  });
-};
-
-exports.update_requests = (req, res) => {
-  const sql = "SELECT * FROM notification_updates WHERE admin_approval = 'pending' ORDER BY id DESC";
-
-  connection.query(sql, (err, results) => {
-    if (err) {
-      console.error('Error retrieving data:', err);
-      res.status(500).json({ error: `Error retrieving data${err}` });
-      return;
-    }
-    const final_events = results.map(eve => {
-      const filelink = publicMediaLink(eve.file_path);
-      const outdate = new Date(eve.date);
-
-      return {
-        ...eve,
-        file_link: filelink,
-        day: outdate.getDate(),
-        month: outdate.toLocaleString('en-US', { month: 'short' }),
-        year: outdate.getFullYear(),
-      };
-    });
-
-    res.json(final_events);
+    res.json(mapNotificationRows(results));
   });
 };
 
 exports.get_notifiactions = (req, res) => {
-  const sql = "SELECT * FROM notification_updates WHERE update_status = 'update' AND admin_approval = 'accepted' AND main_page = 'yes' ORDER BY id DESC";
+  const sql = `SELECT * FROM notification_updates WHERE update_status = 'update' ${notificationOrderSql}`;
 
   connection.query(sql, (err, results) => {
     if (err) {
@@ -326,21 +346,12 @@ exports.get_notifiactions = (req, res) => {
       res.status(500).json({ error: `Error retrieving data${err}` });
       return;
     }
-    const final_events = results.map(eve => {
-      const filelink = publicMediaLink(eve.file_path);
-      const outdate = new Date(eve.date);
-
-      return {
-        ...eve,
-        file_link: filelink,
-        day: outdate.getDate(),
-        month: outdate.toLocaleString('en-US', { month: 'short' }),
-        year: outdate.getFullYear(),
-      };
-    });
-
-    res.json(final_events);
+    res.json(mapNotificationRows(results));
   });
+};
+
+exports.get_departments = (req, res) => {
+  res.json(departments);
 };
 
 exports.get_scrolling_notifiactions = (req, res) => {
@@ -348,8 +359,6 @@ exports.get_scrolling_notifiactions = (req, res) => {
     SELECT *
     FROM notification_updates
     WHERE update_status = 'update'
-      AND scrolling = 'yes'
-      AND admin_approval = 'accepted'
     ORDER BY
       CASE
         WHEN LOWER(title) LIKE '%convocation%' THEN 0
@@ -357,6 +366,7 @@ exports.get_scrolling_notifiactions = (req, res) => {
         WHEN LOWER(title) LIKE '%important%' THEN 2
         ELSE 3
       END,
+      COALESCE(NULLIF(revised_date, ''), date) DESC,
       id DESC
     LIMIT 30
   `;

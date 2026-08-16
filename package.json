@@ -8,6 +8,7 @@
         "dev": "nodemon --watch index.js --watch apis --watch middleware --watch routes --watch Schemas --ext js,json index.js",
         "stop": "node scripts/stop-api.js",
         "test": "node --test",
+        "delete:event-albums": "node scripts/delete-event-albums.js",
         "migrate-admin-email": "node scripts/migrate-admin-email.js",
         "seed:approved-admins": "node scripts/seed-approved-admins.js",
         "migrate:schema": "node scripts/migrate-schema.js"

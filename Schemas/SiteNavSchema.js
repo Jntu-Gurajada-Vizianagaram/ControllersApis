@@ -5,7 +5,7 @@ const defaultNavItems = [
   { label: 'About', path: '/about-us', reference_key: 'nav.about', cms_section: 'static_page', icon_key: 'apartment', sort_order: 20, is_highlighted: false },
   { label: 'Administration', path: '/administration', reference_key: 'nav.administration', cms_section: 'directors', icon_key: 'groups', sort_order: 30, is_highlighted: false },
   { label: 'Academics', path: '/academics', reference_key: 'nav.academics', cms_section: 'notification_console', icon_key: 'school', sort_order: 40, is_highlighted: false },
-  { label: 'Directorates', path: '/directorates', reference_key: 'nav.directorates', cms_section: 'directorate_uploads', icon_key: 'person', sort_order: 50, is_highlighted: false },
+  { label: 'Directorates', path: '/directorates', reference_key: 'nav.directorates', cms_section: 'professionals', icon_key: 'person', sort_order: 50, is_highlighted: false },
   { label: 'Examinations', path: '/examination', reference_key: 'nav.examinations', cms_section: 'notification_console', icon_key: 'description', sort_order: 60, is_highlighted: false },
   { label: 'Certification', path: '/certification', reference_key: 'nav.certification', cms_section: 'dropdown', icon_key: 'verified', sort_order: 70, is_highlighted: false },
   { label: 'Recruitment', path: '/recruitment', reference_key: 'nav.recruitment', cms_section: 'notification_console', icon_key: 'business', sort_order: 80, is_highlighted: false },
@@ -42,13 +42,13 @@ const childNavItems = [
   { parent_key: 'nav.academics', label: 'Academic Calendar', path: '/academics/Calendar', reference_key: 'nav.academics.calendar', cms_section: 'notification_console', sort_order: 70 },
   { parent_key: 'nav.academics', label: 'Academic Syllabus', path: '/academics/academic-syllabus', reference_key: 'nav.academics.syllabus', cms_section: 'notification_console', sort_order: 80 },
   { parent_key: 'nav.academics', label: 'Academic Regulations', path: '/academics/academic-regulations', reference_key: 'nav.academics.regulations', cms_section: 'notification_console', sort_order: 90 },
-  { parent_key: 'nav.directorates', label: 'Academic Audit and Planning', path: '/directorates/academic-audit-planning', reference_key: 'nav.directorates.academic-audit-planning', cms_section: 'directorate_uploads', sort_order: 10 },
-  { parent_key: 'nav.directorates', label: 'Admissions', path: '/directorates/admissions', reference_key: 'nav.directorates.admissions', cms_section: 'directorate_uploads', sort_order: 20 },
-  { parent_key: 'nav.directorates', label: 'Evaluation', path: '/directorates/evaluation', reference_key: 'nav.directorates.evaluation', cms_section: 'directorate_uploads', sort_order: 30 },
-  { parent_key: 'nav.directorates', label: 'Research & Development', path: '/directorates/research', reference_key: 'nav.directorates.research', cms_section: 'directorate_uploads', sort_order: 40 },
-  { parent_key: 'nav.directorates', label: 'Industrial Relations & Placements', path: '/directorates/placements', reference_key: 'nav.directorates.placements', cms_section: 'directorate_uploads', sort_order: 50 },
-  { parent_key: 'nav.directorates', label: 'Internal Quality Assurance Cell', path: '/directorates/iqac', reference_key: 'nav.directorates.iqac', cms_section: 'directorate_uploads', sort_order: 60 },
-  { parent_key: 'nav.directorates', label: 'Alumni Relations', path: '/directorates/alumni-relations', reference_key: 'nav.directorates.alumni-relations', cms_section: 'directorate_uploads', sort_order: 70 },
+  { parent_key: 'nav.directorates', label: 'Academic Audit and Planning', path: '/directorates/academic-audit-planning', reference_key: 'nav.directorates.academic-audit-planning', cms_section: 'professionals', sort_order: 10 },
+  { parent_key: 'nav.directorates', label: 'Admissions', path: '/directorates/admissions', reference_key: 'nav.directorates.admissions', cms_section: 'professionals', sort_order: 20 },
+  { parent_key: 'nav.directorates', label: 'Evaluation', path: '/directorates/evaluation', reference_key: 'nav.directorates.evaluation', cms_section: 'professionals', sort_order: 30 },
+  { parent_key: 'nav.directorates', label: 'Research & Development', path: '/directorates/research', reference_key: 'nav.directorates.research', cms_section: 'professionals', sort_order: 40 },
+  { parent_key: 'nav.directorates', label: 'Industrial Relations & Placements', path: '/directorates/placements', reference_key: 'nav.directorates.placements', cms_section: 'professionals', sort_order: 50 },
+  { parent_key: 'nav.directorates', label: 'Internal Quality Assurance Cell', path: '/directorates/iqac', reference_key: 'nav.directorates.iqac', cms_section: 'professionals', sort_order: 60 },
+  { parent_key: 'nav.directorates', label: 'Alumni Relations', path: '/directorates/alumni-relations', reference_key: 'nav.directorates.alumni-relations', cms_section: 'professionals', sort_order: 70 },
   { parent_key: 'nav.examinations', label: 'Controller of Examinations', path: '/examination/controller', reference_key: 'nav.examinations.controller', cms_section: 'static_page', sort_order: 10 },
   { parent_key: 'nav.examinations', label: 'Additional Controller of Examinations-SDC', path: '/examination/controller-sdc', reference_key: 'nav.examinations.controller-sdc', cms_section: 'static_page', sort_order: 20 },
   { parent_key: 'nav.examinations', label: 'Additional Controller of Examinations-1', path: '/examination/controller1', reference_key: 'nav.examinations.controller1', cms_section: 'static_page', sort_order: 30 },
@@ -212,6 +212,16 @@ exports.site_nav_table = () => {
     };
 
     ensureNavigationColumns(() => {
+      con.query(
+        `UPDATE site_nav_items
+         SET cms_section = 'professionals'
+         WHERE cms_section = 'directorate_uploads'`,
+        (profileSectionErr) => {
+          if (profileSectionErr) {
+            console.warn('Existing directorate_uploads CMS section not migrated:', profileSectionErr.message);
+          }
+        },
+      );
       con.query(
         `DELETE FROM site_nav_items
          WHERE LOWER(label) LIKE '%convocation%'

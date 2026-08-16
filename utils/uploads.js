@@ -17,6 +17,35 @@ const safeFilename = (file) => {
   return `${Date.now()}-${crypto.randomUUID()}${extension}`;
 };
 
+const sanitizeOriginalFilename = (file) => {
+  const extension = extensionsByMime[file.mimetype];
+  if (!extension) throw new Error('Unsupported file type');
+
+  const parsed = path.parse(file.originalname || `document${extension}`);
+  const baseName = parsed.name
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+
+  const safeBaseName = baseName || `document-${Date.now()}`;
+  return `${safeBaseName}${extension}`;
+};
+
+const safeOriginalFilename = (file, directory) => {
+  const filename = sanitizeOriginalFilename(file);
+  const parsed = path.parse(filename);
+  let candidate = filename;
+  let copy = 2;
+
+  while (directory && require('fs').existsSync(path.join(directory, candidate))) {
+    candidate = `${parsed.name}-${copy}${parsed.ext}`;
+    copy += 1;
+  }
+
+  return candidate;
+};
+
 const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const notificationMimeTypes = new Set([...imageMimeTypes, 'application/pdf']);
 const documentMimeTypes = new Set([
@@ -41,6 +70,7 @@ const safeEventName = (value) => {
 
 module.exports = {
   safeFilename,
+  safeOriginalFilename,
   safeEventName,
   imageFileFilter: fileFilterFor(imageMimeTypes),
   notificationFileFilter: fileFilterFor(notificationMimeTypes),

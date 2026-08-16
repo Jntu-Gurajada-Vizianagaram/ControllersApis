@@ -131,29 +131,6 @@ exports.carousel_imgs = (req, res) => {
   });
 };
 
-exports.carousel_imgs_preview = (req, res) => {
-  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='accepted' AND carousel_scrolling='yes' ORDER BY id DESC";
-
-  connection.query(sql, (err, results) => {
-    if (err) {
-      console.error('Error retrieving data:', err);
-      res.status(500).json({ error: `Error retrieving data${err}` });
-      return;
-    }
-
-    const img_list = results.map(img => {
-      const img_link = `${api_ip}/dmc/${img.file_path}`;
-
-      return {
-        ...img,
-        imglink: img_link
-      };
-    });
-
-    res.json(img_list);
-  });
-};
-
 exports.remove_from_carousel = (req, res) => {
   const img_id = req.params.imgid;
   const query1 = "SELECT * FROM dmc_upload WHERE id = ? AND carousel_scrolling = 'yes'";
@@ -251,76 +228,6 @@ exports.update_carousel_image = (req, res) => {
   });
 };
 
-exports.webadmin_requests = (req, res) => {
-  const sql = "SELECT * FROM dmc_upload WHERE admin_approval='pending' AND carousel_scrolling='yes' ORDER BY id DESC";
-
-  connection.query(sql, (err, results) => {
-    if (err) {
-      console.error('Error retrieving data:', err);
-      res.status(500).json({ error: `Error retrieving data${err}` });
-      return;
-    }
-    const final_events = results.map(eve => {
-      const filelink = `${api_ip}/dmc/${eve.file_path}`;
-      const outdate = new Date(eve.date);
-
-      return {
-        ...eve,
-        file_link: filelink,
-        day: outdate.getDate(),
-        month: outdate.toLocaleString('en-US', { month: 'short' }),
-        year: outdate.getFullYear(),
-      };
-    });
-
-    res.json(final_events);
-  });
-};
-
-exports.webadmin_request_accept = (req, res) => {
-  const imgid = req.params.id;
-  const sql = 'SELECT * FROM dmc_upload WHERE id = ?';
-  connection.query(sql, [imgid], (err, result) => {
-    if (err) {
-      console.error('Error retrieving data:', err);
-      res.status(500).json({ error: `Error in accepting update: ${err}` });
-      return;
-    }
-    if (result.length > 0) {
-      const updateSql = 'UPDATE dmc_upload SET admin_approval = ? WHERE id = ?';
-      const updateValues = ['accepted', imgid];
-      connection.query(updateSql, updateValues, (uperr, upres) => {
-        if (uperr) {
-          console.error('Error updating data:', uperr);
-          res.status(500).json({ error: `Error in accepting update: ${uperr}` });
-          return;
-        }
-        res.json({ message: 'Image Request Accepted Successfully' });
-      });
-    } else {
-      console.error('No data found');
-      res.status(404).json({ error: 'No data found' });
-    }
-  });
-};
-
-exports.webadmin_request_deny = (req, res) => {
-  const imgid = req.params.id;
-  const sql = 'SELECT * FROM dmc_upload WHERE id = ?';
-  connection.query(sql, [imgid], (err, result) => {
-    if (err) {
-      res.status(500).json({ error: `error in accepting update ${err}` });
-    } else if (result.length > 0) {
-      connection.query("UPDATE dmc_upload SET admin_approval = 'denied' WHERE id = ?", [imgid], (uperr, upres) => {
-        if (uperr) {
-          res.status(500).json({ error: `error in accepting update ${err}` });
-        }
-        res.json({ message: "Image request denied Successfully" });
-      });
-    }
-  });
-};
-
 const bulkstorage = multer.diskStorage({
   destination: (req, file, cb) => {
     let event_name;
@@ -347,20 +254,50 @@ exports.bulkupload = multer({
   fileFilter: imageFileFilter,
 }).array('files', 60);
 
+exports.eventAlbumImagesUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 61, fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+}).fields([
+  { name: 'main_image', maxCount: 1 },
+  { name: 'gallery_images', maxCount: 60 },
+]);
+
+const eventFolderPath = (eventName) =>
+  path.join(__dirname, '..', '..', 'storage', 'dmc', 'events', safeEventName(eventName));
+
+const isMainEventImage = (filename = '') => filename.startsWith('main-');
+
+const eventFileLink = (eventName, filename) => `${api_ip}/events/${eventName}/${filename}`;
+
+const writeEventImage = async (folderPath, file, prefix = '') => {
+  const filename = `${prefix}${safeFilename(file)}`;
+  await fs.promises.writeFile(path.join(folderPath, filename), file.buffer);
+  return filename;
+};
+
+const removeExistingMainImages = async (folderPath) => {
+  const files = await fs.promises.readdir(folderPath).catch(() => []);
+  await Promise.all(
+    files
+      .filter(isMainEventImage)
+      .map((filename) => fs.promises.rm(path.join(folderPath, filename), { force: true })),
+  );
+};
+
 exports.add_event_photos = async (req, res) => {
   const events_details = req.body;
-  const files = req.files;
+  const files = req.files || [];
 
   try {
-    if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
-    }
+    const eventName = safeEventName(events_details.event_name);
+    const folderpath = eventFolderPath(eventName);
+    await fs.promises.mkdir(folderpath, { recursive: true });
 
-    const folderpath = path.join(__dirname, '..', '..', 'storage', 'dmc', 'events', events_details.event_name);
     const sql = `INSERT INTO event_photos (uploaded_date, event_name, description, added_by, admin_approval, main_page) VALUES (?, ?, ?, ?, ?, ?)`;
     const values = [
       events_details.uploaded_date,
-      events_details.event_name,
+      eventName,
       events_details.description,
       events_details.added_by,
       'accepted',
@@ -372,10 +309,13 @@ exports.add_event_photos = async (req, res) => {
     const filePromises = files.map(file => {
       return new Promise((resolve, reject) => {
         const filePath = path.join(folderpath, file.filename);
+        if (path.resolve(file.path) === path.resolve(filePath)) {
+          resolve();
+          return;
+        }
         fs.rename(file.path, filePath, (err) => {
-          if (err) {
-            reject(err);
-          } else {
+          if (err) reject(err);
+          else {
             resolve();
           }
         });
@@ -383,7 +323,11 @@ exports.add_event_photos = async (req, res) => {
     });
 
     await Promise.all(filePromises);
-    res.json({ message: `${events_details.event_name} Photos uploaded Successfully` });
+    res.json({
+      id: result.insertId,
+      event_name: eventName,
+      message: `${eventName} event album saved successfully`,
+    });
   } catch (error) {
     // console.log(error);
     // console.log(error.message);
@@ -402,21 +346,35 @@ const event_photos_links = async (event_name) => {
       return stats.isFile();
     });
 
-    const filesOnly = filesnames.map((filename) => {
-      const filelink = `${api_ip}/events/${event_name}/${filename}`;
-      return filelink;
-    });
+    const mainImage = filesnames.find(isMainEventImage);
+    const galleryFiles = filesnames.filter((filename) => !isMainEventImage(filename));
+    const filesOnly = galleryFiles.map((filename) => eventFileLink(event_name, filename));
 
-    return filesOnly;
+    return {
+      main_image: mainImage ? eventFileLink(event_name, mainImage) : '',
+      gallery_images: filesOnly,
+      all_images: filesnames.map((filename) => eventFileLink(event_name, filename)),
+    };
   } catch (err) {
     console.error(err);
     throw err;
   }
 };
 
+const withEventImageLinks = async (eve) => {
+  const photos = await event_photos_links(eve.event_name);
+  return {
+    ...eve,
+    main_image: photos.main_image,
+    thumbnail: photos.main_image || photos.gallery_images[5] || photos.gallery_images[0] || '',
+    event_photos: photos.gallery_images,
+    all_event_images: photos.all_images,
+  };
+};
+
 exports.get_events_photos = async (req, res) => {
   try {
-    const sql = "SELECT * FROM event_photos ORDER BY uploaded_date";
+    const sql = "SELECT * FROM event_photos ORDER BY uploaded_date DESC, id DESC";
     connection.query(sql, async (err, result) => {
       if (err) {
         res.status(400).json({ message: err });
@@ -424,11 +382,10 @@ exports.get_events_photos = async (req, res) => {
         const events = [];
         for (const eve of result) {
           try {
-            const photos = await event_photos_links(eve.event_name);
-            events.push({ ...eve, thumbnail: photos[5], event_photos: photos });
+            events.push(await withEventImageLinks(eve));
           } catch (error) {
             console.error(`Error fetching photos for event ${eve.event_name}:`, error);
-            events.push({ ...eve, event_photos: [] });
+            events.push({ ...eve, main_image: '', thumbnail: '', event_photos: [], all_event_images: [] });
           }
         }
         res.status(200).json({ message: "All Events Photos and their Links", events });
@@ -443,7 +400,7 @@ exports.get_events_photos = async (req, res) => {
 
 exports.get_main_events_photos = async (req, res) => {
   try {
-    const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY uploaded_date DESC";
+    const sql = "SELECT * FROM event_photos WHERE admin_approval='accepted' ORDER BY uploaded_date DESC, id DESC";
     connection.query(sql, async (err, result) => {
       if (err) {
         res.status(400).json({ message: err });
@@ -451,11 +408,10 @@ exports.get_main_events_photos = async (req, res) => {
         const events = [];
         for (const eve of result) {
           try {
-            const photos = await event_photos_links(eve.event_name);
-            events.push({ ...eve, thumbnail: photos[5], event_photos: photos });
+            events.push(await withEventImageLinks(eve));
           } catch (error) {
             console.error(`Error fetching photos for event ${eve.event_name}:`, error);
-            events.push({ ...eve, event_photos: [] });
+            events.push({ ...eve, main_image: '', thumbnail: '', event_photos: [], all_event_images: [] });
           }
         }
         res.json({ message: "All Events Photos and their Links", events });
@@ -507,76 +463,129 @@ exports.delete_event_photos = (req, res) => {
   });
 };
 
+exports.update_event_photos = (req, res) => {
+  const eventId = req.params.id;
+  const {
+    uploaded_date,
+    event_name,
+    description,
+    main_page,
+    admin_approval,
+  } = req.body;
 
-exports.webadmin_event_requests = (req, res) => {
-  const sql = "SELECT * FROM event_photos WHERE admin_approval='pending' AND main_page='yes' ORDER BY id DESC";
+  if (!eventId || !uploaded_date || !event_name) {
+    res.status(400).json({ error: 'Event id, date, and event name are required' });
+    return;
+  }
+
+  let nextEventName;
+  try {
+    nextEventName = safeEventName(event_name);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+    return;
+  }
+
+  const selectSql = 'SELECT * FROM event_photos WHERE id = ?';
+  connection.query(selectSql, [eventId], (selectErr, selectResult) => {
+    if (selectErr) {
+      res.status(500).json({ error: 'Error selecting event' });
+      return;
+    }
+
+    if (selectResult.length === 0) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const existingEvent = selectResult[0];
+    const currentEventName = existingEvent.event_name;
+    const currentFolder = path.join('./storage/dmc/events', currentEventName);
+    const nextFolder = path.join('./storage/dmc/events', nextEventName);
+
+    const finishUpdate = () => {
+      const updateSql = `
+        UPDATE event_photos
+        SET uploaded_date = ?, event_name = ?, description = ?, main_page = ?, admin_approval = ?
+        WHERE id = ?
+      `;
+      const values = [
+        uploaded_date,
+        nextEventName,
+        description || '',
+        main_page || existingEvent.main_page || 'no',
+        admin_approval || existingEvent.admin_approval || 'accepted',
+        eventId,
+      ];
+
+      connection.query(updateSql, values, (updateErr) => {
+        if (updateErr) {
+          res.status(500).json({ error: 'Error updating event' });
+          return;
+        }
+        res.json({ message: 'Event album updated successfully' });
+      });
+    };
+
+    if (currentEventName !== nextEventName && fs.existsSync(currentFolder)) {
+      fs.rename(currentFolder, nextFolder, (renameErr) => {
+        if (renameErr) {
+          res.status(500).json({ error: 'Error renaming event album folder' });
+          return;
+        }
+        finishUpdate();
+      });
+      return;
+    }
+
+    finishUpdate();
+  });
+};
+
+exports.add_event_album_images = async (req, res) => {
+  const eventId = req.params.id;
+  const mainImage = req.files?.main_image?.[0];
+  const galleryImages = req.files?.gallery_images || [];
+
+  if (!mainImage && !galleryImages.length) {
+    res.status(400).json({ error: 'Select a main image or gallery images to upload' });
+    return;
+  }
 
   try {
-    con.query(sql, async (err, result) => {
-      if (err) {
-        res.status(400).json({ message: err });
-      } else {
-        const events = [];
-        for (const eve of result) {
-          try {
-            const photos = await event_photos_links(eve.event_name);
-            events.push({ ...eve, thumbnail: photos[5], event_photos: photos });
-          } catch (error) {
-            console.error(`Error fetching photos for event ${eve.event_name}:`, error);
-            events.push({ ...eve, event_photos: [] });
-          }
-        }
-        res.json(events);
-      }
+    const [rows] = await connection.promise().query('SELECT * FROM event_photos WHERE id = ?', [eventId]);
+    if (!rows.length) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const eventName = safeEventName(rows[0].event_name);
+    const folderPath = eventFolderPath(eventName);
+    await fs.promises.mkdir(folderPath, { recursive: true });
+
+    if (mainImage) {
+      await removeExistingMainImages(folderPath);
+      await writeEventImage(folderPath, mainImage, 'main-');
+    }
+
+    await Promise.all(galleryImages.map((file) => writeEventImage(folderPath, file)));
+    const photos = await event_photos_links(eventName);
+
+    res.json({
+      message: 'Event album images updated successfully',
+      main_image: photos.main_image,
+      event_photos: photos.gallery_images,
+      all_event_images: photos.all_images,
     });
   } catch (error) {
-    console.error("Error fetching events:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error('Error updating event album images:', error);
+    res.status(500).json({ error: 'Failed to update event album images' });
   }
 };
 
-exports.webadmin_event_request_accept = (req, res) => {
-  const imgid = req.params.id;
-  console.log(imgid);
-  const sql = 'SELECT * FROM event_photos WHERE id = ?';
-  connection.query(sql, [imgid], (err, result) => {
-    if (err) {
-      console.log(err);
-      res.status(500).json({ error: `error in accepting update ${err}` });
-    }
-    if (result.length > 0) {
-      connection.query("UPDATE event_photos SET admin_approval = 'accepted' WHERE id = ?", [imgid], (uperr, upres) => {
-        if (uperr) {
-          res.status(500).json({ error: `error in accepting update ${err}` });
-        }
-        res.json({ message: "Event Main Page Request Accepted Successfully" });
-      });
-    } else {
-      res.status(404).json({ error: "Event not found" });
-    }
-  });
-};
-
-exports.webadmin_event_request_deny = (req, res) => {
-  const imgid = req.params.id;
-  const sql = 'SELECT * FROM event_photos WHERE id = ?';
-  connection.query(sql, [imgid], (err, result) => {
-    if (err) {
-      res.status(500).json({ error: `error in accepting update ${err}` });
-    } else if (result.length > 0) {
-      connection.query("UPDATE event_photos SET admin_approval = 'denied' WHERE id = ?", [imgid], (uperr, upres) => {
-        if (uperr) {
-          res.status(500).json({ error: `error in accepting update ${err}` });
-        }
-        res.json({ message: "Event Main Page request denied Successfully" });
-      });
-    }
-  });
-};
 
 exports.get_event_photos = async (req, res) => {
   const event_name = req.params.event_name;
   const photos = await event_photos_links(event_name);
-  res.json(photos);
+  res.json(photos.gallery_images);
 };
-

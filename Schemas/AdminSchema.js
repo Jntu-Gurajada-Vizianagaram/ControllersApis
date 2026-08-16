@@ -15,6 +15,23 @@ exports.admin_table = () => {
             con.query('ALTER TABLE admins ADD COLUMN google_sub VARCHAR(255) NULL UNIQUE KEY');
           }
         });
+        con.query(
+          `CREATE TABLE IF NOT EXISTS admin_password_reset_tokens(
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            admin_id INT NOT NULL,
+            token_hash VARCHAR(128) NOT NULL UNIQUE,
+            expires_at DATETIME NOT NULL,
+            used_at DATETIME NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX admin_password_reset_admin_idx (admin_id),
+            CONSTRAINT admin_password_reset_admin_fk
+              FOREIGN KEY (admin_id) REFERENCES admins(id)
+              ON DELETE CASCADE
+          );`,
+          (tokenError) => {
+            if (tokenError) console.error('Admin password reset table not created:', tokenError.message);
+          },
+        );
       });
     } catch (err) {
       console.log(err + "Admins Table not Created",

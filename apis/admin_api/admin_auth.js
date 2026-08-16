@@ -1,8 +1,18 @@
 const con = require('../config');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const saltRounds = 10;
 const { normalizeEmail, isOrganizationEmail } = require('./emailPolicy');
 const { establishAdminSession } = require('./adminSession');
+const { createTransporter, escapeHtml } = require('../grievance_api/mailer');
+
+const getAdminAppUrl = () =>
+  String(process.env.ADMIN_APP_URL || (process.env.NODE_ENV === 'production'
+    ? 'https://admin.jntugv.edu.in'
+    : 'http://localhost:3001')).replace(/\/+$/, '');
+
+const hashResetToken = (token) =>
+  crypto.createHash('sha256').update(String(token || '')).digest('hex');
 
 async function upsertGoogleAdmin({ googleSub, username, name, role = 'Admin' }) {
   if (!googleSub) {
@@ -268,8 +278,123 @@ exports.logout = (req, res) => {
   });
 };
 
-// Update HOD (Admin) details
-exports.update_hod = async (req, res) => {
+exports.request_password_reset = async (req, res) => {
+  const email = normalizeEmail(req.body?.email || req.body?.username || '');
+  const genericResponse = {
+    message: 'If an approved admin account exists for this email, a password reset link will be sent.',
+  };
+
+  if (!email || !isOrganizationEmail(email)) {
+    return res.json(genericResponse);
+  }
+
+  try {
+    const db = con.promise();
+    const [rows] = await db.execute(
+      `SELECT a.id, a.name, LOWER(TRIM(a.username)) AS username
+       FROM admins a
+       INNER JOIN admin_email_allowlist w
+         ON w.email = LOWER(TRIM(a.username)) AND w.enabled = TRUE
+       WHERE LOWER(TRIM(a.username)) = ?
+       LIMIT 1`,
+      [email],
+    );
+
+    if (!rows.length) return res.json(genericResponse);
+
+    const admin = rows[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashResetToken(token);
+    const resetLink = `${getAdminAppUrl()}/passwordreset?token=${token}`;
+
+    await db.execute(
+      `UPDATE admin_password_reset_tokens
+       SET used_at = NOW()
+       WHERE admin_id = ? AND used_at IS NULL`,
+      [admin.id],
+    );
+    await db.execute(
+      `INSERT INTO admin_password_reset_tokens (admin_id, token_hash, expires_at)
+       VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE))`,
+      [admin.id, tokenHash],
+    );
+
+    try {
+      const transporter = createTransporter();
+      await transporter.sendMail({
+        from: `JNTU-GV Admin Console <${process.env.SMTP_USER}>`,
+        to: admin.username,
+        subject: 'JNTU-GV Admin Console Password Reset',
+        html: `
+          <p>Dear ${escapeHtml(admin.name || 'Administrator')},</p>
+          <p>Use the secure link below to reset your JNTU-GV Admin Console password. This link expires in 30 minutes.</p>
+          <p><a href="${escapeHtml(resetLink)}">Reset Admin Console Password</a></p>
+          <p>If you did not request this reset, you can ignore this email.</p>
+        `,
+      });
+      return res.json(genericResponse);
+    } catch (mailError) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Password reset email failed:', mailError.message);
+        return res.json(genericResponse);
+      }
+      return res.json({ ...genericResponse, reset_link: resetLink });
+    }
+  } catch (error) {
+    console.error('Password reset request failed:', error.message);
+    return res.json(genericResponse);
+  }
+};
+
+exports.confirm_password_reset = async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  const password = String(req.body?.password || '');
+
+  if (!token || password.length < 8) {
+    return res.status(400).json({
+      message: 'A valid reset token and a password of at least 8 characters are required.',
+    });
+  }
+
+  let db;
+  try {
+    db = await con.promise().getConnection();
+    const tokenHash = hashResetToken(token);
+    const [rows] = await db.execute(
+      `SELECT t.id, t.admin_id
+       FROM admin_password_reset_tokens t
+       WHERE t.token_hash = ?
+         AND t.used_at IS NULL
+         AND t.expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash],
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ message: 'The reset link is invalid or expired.' });
+    }
+
+    await db.beginTransaction();
+    await db.execute('UPDATE admins SET password = ? WHERE id = ?', [
+      await bcrypt.hash(password, saltRounds),
+      rows[0].admin_id,
+    ]);
+    await db.execute(
+      'UPDATE admin_password_reset_tokens SET used_at = NOW() WHERE id = ?',
+      [rows[0].id],
+    );
+    await db.commit();
+    return res.json({ message: 'Password updated successfully. Please sign in with your new password.' });
+  } catch (error) {
+    try { if (db) await db.rollback(); } catch {}
+    console.error('Password reset confirmation failed:', error.message);
+    return res.status(500).json({ message: 'Unable to reset password.' });
+  } finally {
+    if (db) db.release();
+  }
+};
+
+exports.update_admin_user = async (req, res) => {
   const adminId = req.params.id;
   const { name, username, password, role } = req.body;
   const allowedRoles = new Set(['RootAdmin', 'Admin', 'Developer', 'WebAdmin', 'Updates', 'AffiliatedColleges', 'AffliatedColleges', 'Directors']);

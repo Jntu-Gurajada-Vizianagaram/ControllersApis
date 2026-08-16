@@ -5,7 +5,7 @@ const { normalizeEmail, isOrganizationEmail } = require('./emailPolicy');
 const saltRounds = 10;
 const allowedRoles = new Set(['RootAdmin', 'Admin', 'Developer', 'WebAdmin', 'Updates', 'AffiliatedColleges', 'AffliatedColleges', 'Directors']);
 
-exports.addhods = async (req, res) => {
+exports.add = async (req, res) => {
   const data = req.body.data || req.body;
   const email = normalizeEmail(data?.username);
   if (!data?.name || !isOrganizationEmail(email) || typeof data.password !== 'string'
@@ -44,7 +44,7 @@ exports.addhods = async (req, res) => {
   }
 };
 
-exports.alladmins = (req, res) => {
+exports.all = (req, res) => {
   connection.query(
     'SELECT id, name, username, role FROM admins ORDER BY id',
     (error, rows) => error
@@ -53,7 +53,7 @@ exports.alladmins = (req, res) => {
   );
 };
 
-exports.remove_hod = (req, res) => {
+exports.remove = (req, res) => {
   if (Number(req.params.id) === Number(req.session.user.id)) {
     return res.status(400).json({ message: 'You cannot remove your own active administrator account' });
   }

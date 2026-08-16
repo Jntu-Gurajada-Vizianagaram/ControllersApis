@@ -16,6 +16,7 @@ const affliatedColleges = require("./routes/affliated_colleges_routes/AffliatedC
 const results = require("./routes/results_routes/ResultsRoutes");
 const gallery = require("./routes/gallery_routes/gallery_routes");
 const directors = require('./routes/directors_routes/DirectorsRoutes');
+const profiles = require('./routes/profile_routes/ProfileRoutes');
 const siteContent = require('./routes/site_routes/SiteContentRoutes');
 const pressNotes = require('./routes/press_notes_routes/PressNotesRoutes');
 const websiteRoutes = require('./routes/website_routes/WebsiteRoutes');
@@ -27,6 +28,9 @@ const bodyparser = require("body-parser");
 const cookieparser = require("cookie-parser");
 const con = require("./apis/config");
 const MySQLSessionStore = require('./middleware/MySQLSessionStore');
+const { requireRoles } = require('./middleware/auth');
+const { buildApiDocs } = require('./utils/apiDocs');
+const { apiMetricsMiddleware } = require('./utils/apiMetrics');
 
 const adminRoutes = require("./routes/adminRoutes");
 const webadminRoutes = require("./routes/webadminRoutes");
@@ -105,6 +109,27 @@ app.use(
   }),
 );
 
+const apiRouteMounts = [
+  { basePath: "/api/admins", router: admins, group: "Admin Authentication" },
+  { basePath: "/api/mailing", router: mailing, group: "Mailing and Grievances" },
+  { basePath: "/api/updates", router: updates, group: "Notifications" },
+  { basePath: "/api/webadmin", router: dmcupload, group: "Media and Events" },
+  { basePath: "/api/gallery", router: gallery, group: "Gallery" },
+  { basePath: "/api/affliated-colleges", router: affliatedColleges, group: "Affiliated Colleges" },
+  { basePath: "/api/results", router: results, group: "Results" },
+  { basePath: "/api/directors", router: directors, group: "Directors" },
+  { basePath: "/api/profiles", router: profiles, group: "Profiles" },
+  { basePath: "/api/website", router: websiteRoutes, group: "Public Website" },
+  { basePath: "/api/site", router: siteContent, group: "Site CMS" },
+  { basePath: "/api/press-notes", router: pressNotes, group: "Press Notes" },
+  { basePath: "/admin", router: adminRoutes, group: "Legacy Admin" },
+  { basePath: "/webadmin", router: webadminRoutes, group: "Legacy Web Admin" },
+  { basePath: "/developer", router: developerRoutes, group: "Developer" },
+  {basePath: "/api/docs", router: null, group: "API Documentation" },
+];
+
+app.use(apiMetricsMiddleware);
+
 // Static Files Configuration
 app.use("/media", express.static("./storage/notifications"));
 app.use("/dmc", express.static("./storage/dmc"));
@@ -127,11 +152,14 @@ app.use("/api/gallery", gallery);
 app.use("/api/affliated-colleges", affliatedColleges);
 app.use("/api/results", results);
 app.use('/api/directors', directors);
+app.use('/api/profiles', profiles);
 app.use('/api/website', websiteRoutes);
 app.use('/api/site', siteContent);
 app.use('/api/press-notes', pressNotes);
 
-
+app.get('/api/docs', requireRoles('Admin', 'Developer'), (req, res) => {
+  res.json(buildApiDocs(apiRouteMounts));
+});
 
 app.use("/admin", adminRoutes);
 app.use("/webadmin", webadminRoutes);

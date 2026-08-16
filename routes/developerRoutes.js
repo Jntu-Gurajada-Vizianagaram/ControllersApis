@@ -1,5 +1,6 @@
 const express = require("express");
 const { requireRoles } = require("../middleware/auth");
+const { summarizeApiMetrics } = require("../utils/apiMetrics");
 
 const router = express.Router();
 const legacyDeveloperAccess = requireRoles("Admin", "Developer");
@@ -13,7 +14,9 @@ const legacyResponse = (req, res) => {
 
 router.use(legacyDeveloperAccess);
 
-router.get("/metrics", legacyResponse);
+router.get("/metrics", (req, res) => {
+  res.json(summarizeApiMetrics());
+});
 router.get("/sites/status", legacyResponse);
 router.get("/api/timings", legacyResponse);
 
