@@ -1,7 +1,8 @@
 const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 const connection = require('../config');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const QRCode = require('qrcode');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
@@ -49,6 +50,12 @@ const publicMediaLink = (filename) =>
 const toBooleanString = (value) =>
   ['true', 'yes', '1', true, 1].includes(value) ? 'true' : 'false';
 
+const shouldEmbedQr = (value) =>
+  ['true', 'yes', '1', 'on', true, 1].includes(value);
+
+const normalizeQrPlacement = (value) =>
+  value === 'first_page_corner' ? 'first_page_corner' : 'append_page';
+
 const cleanOptionalDate = (value) => String(value || '').trim() || null;
 
 const getPrefixedTitle = (title, department) => {
@@ -78,30 +85,99 @@ const notificationOrderSql = `
     id DESC
 `;
 
-const appendQrToStoredPdf = async (filename) => {
+const logoPath = path.join(__dirname, '../../assets/jntugv-logo.png');
+
+const drawBrandedQr = async (pdfDoc, page, filename, options = {}) => {
+  const qrSize = Number(options.size || 86);
+  const x = Number(options.x || 24);
+  const y = Number(options.y || 24);
+  const qrPng = await QRCode.toBuffer(publicMediaLink(filename), {
+    errorCorrectionLevel: 'H',
+    margin: 1,
+    width: 360,
+    color: {
+      dark: '#210653',
+      light: '#FFFFFF',
+    },
+  });
+  const qrImage = await pdfDoc.embedPng(qrPng);
+
+  page.drawImage(qrImage, {
+    x,
+    y,
+    width: qrSize,
+    height: qrSize,
+  });
+
+  if (!fs.existsSync(logoPath)) return;
+
+  const logoBytes = await fs.promises.readFile(logoPath);
+  const logoImage = await pdfDoc.embedPng(logoBytes);
+  const badgeSize = qrSize * 0.28;
+  const badgeX = x + (qrSize - badgeSize) / 2;
+  const badgeY = y + (qrSize - badgeSize) / 2;
+  const logoSize = badgeSize * 0.78;
+
+  page.drawRectangle({
+    x: badgeX,
+    y: badgeY,
+    width: badgeSize,
+    height: badgeSize,
+    color: rgb(1, 1, 1),
+  });
+
+  page.drawImage(logoImage, {
+    x: x + (qrSize - logoSize) / 2,
+    y: y + (qrSize - logoSize) / 2,
+    width: logoSize,
+    height: logoSize,
+  });
+};
+
+const appendQrToStoredPdf = async (filename, options = {}) => {
   if (!filename || !filename.toLowerCase().endsWith('.pdf')) return;
+  if (!shouldEmbedQr(options.embedQrCode)) return;
 
   const filePath = `./storage/notifications/${filename}`;
   const pdfBytes = await fs.promises.readFile(filePath);
   const pdfDoc = await PDFDocument.load(pdfBytes);
-  const [firstPage] = pdfDoc.getPages();
-  if (!firstPage) return;
+  const placement = normalizeQrPlacement(options.placement);
 
-  const qrPng = await QRCode.toBuffer(publicMediaLink(filename), {
-    errorCorrectionLevel: 'H',
-    margin: 1,
-    width: 256,
-  });
-  const qrImage = await pdfDoc.embedPng(qrPng);
-  const { width } = firstPage.getSize();
-  const qrSize = 75;
+  if (placement === 'first_page_corner') {
+    const [firstPage] = pdfDoc.getPages();
+    if (!firstPage) return;
+    const { width } = firstPage.getSize();
+    const qrSize = 72;
+    await drawBrandedQr(pdfDoc, firstPage, filename, {
+      size: qrSize,
+      x: width - qrSize - 16,
+      y: 16,
+    });
+  } else {
+    const qrPage = pdfDoc.addPage([360, 240]);
+    const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  firstPage.drawImage(qrImage, {
-    x: width - qrSize - 10,
-    y: 10,
-    width: qrSize,
-    height: qrSize,
-  });
+    qrPage.drawText('JNTU-GV Notification Verification', {
+      x: 34,
+      y: 190,
+      size: 13,
+      font: titleFont,
+      color: rgb(0.13, 0.02, 0.33),
+    });
+    qrPage.drawText('Scan the QR code to open the official uploaded PDF link.', {
+      x: 34,
+      y: 170,
+      size: 9,
+      font: bodyFont,
+      color: rgb(0.2, 0.24, 0.32),
+    });
+    await drawBrandedQr(pdfDoc, qrPage, filename, {
+      size: 104,
+      x: 128,
+      y: 46,
+    });
+  }
 
   await fs.promises.writeFile(filePath, await pdfDoc.save());
 };
@@ -154,7 +230,10 @@ exports.insert_event = async (req, res) => {
   }
 
   try {
-    await appendQrToStoredPdf(file);
+    await appendQrToStoredPdf(file, {
+      embedQrCode: update.embed_qr_code,
+      placement: update.qr_placement,
+    });
   } catch (err) {
     if (file) fs.promises.unlink(`./storage/notifications/${file}`).catch(() => {});
     console.error('Error appending QR code to notification PDF:', err);
@@ -282,7 +361,10 @@ exports.update_event = (req, res) => {
       };
 
       if (req.file) {
-        appendQrToStoredPdf(req.file.filename)
+        appendQrToStoredPdf(req.file.filename, {
+          embedQrCode: req.body.embed_qr_code,
+          placement: req.body.qr_placement,
+        })
           .then(continueUpdate)
           .catch((err) => {
             fs.promises.unlink(`./storage/notifications/${req.file.filename}`).catch(() => {});
