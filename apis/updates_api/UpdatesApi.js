@@ -50,11 +50,13 @@ const publicMediaLink = (filename) =>
 const toBooleanString = (value) =>
   ['true', 'yes', '1', true, 1].includes(value) ? 'true' : 'false';
 
-const shouldEmbedQr = (value) =>
-  ['true', 'yes', '1', 'on', true, 1].includes(value);
+const shouldEmbedQr = (value) => {
+  if (value === undefined || value === null || value === '') return true;
+  return ['true', 'yes', '1', 'on', true, 1].includes(value);
+};
 
 const normalizeQrPlacement = (value) =>
-  value === 'first_page_corner' ? 'first_page_corner' : 'append_page';
+  value === 'append_page' ? 'append_page' : 'first_page_corner';
 
 const cleanOptionalDate = (value) => String(value || '').trim() || null;
 
