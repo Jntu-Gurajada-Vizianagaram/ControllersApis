@@ -42,6 +42,9 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
 }
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const sessionStore = new MySQLSessionStore(con);
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionCookieSameSite = process.env.SESSION_COOKIE_SAMESITE || (isProduction ? 'none' : 'lax');
+const sessionCookieDomain = String(process.env.SESSION_COOKIE_DOMAIN || '').trim() || undefined;
 
 // CORS Configuration
 const corsOptions = {
@@ -98,13 +101,15 @@ app.use(
     name: 'jntugv.sid',
     secret: sessionSecret,
     store: sessionStore,
+    proxy: isProduction,
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 60 * 60 * 24 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Secure in production
-      sameSite: "lax"
+      secure: isProduction,
+      sameSite: sessionCookieSameSite,
+      domain: sessionCookieDomain,
     },
   }),
 );

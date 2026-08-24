@@ -1,6 +1,7 @@
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const connection = require('../config');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const QRCode = require('qrcode');
@@ -88,6 +89,80 @@ const notificationOrderSql = `
 `;
 
 const logoPath = path.join(__dirname, '../../assets/jntugv-logo.png');
+let pdfjsPromise;
+
+const loadPdfJs = async () => {
+  if (!pdfjsPromise) {
+    const pdfjsPath = require.resolve('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjsPromise = import(pathToFileURL(pdfjsPath).href);
+  }
+  return pdfjsPromise;
+};
+
+const rectanglesOverlap = (a, b) =>
+  a.x < b.x + b.width
+  && a.x + a.width > b.x
+  && a.y < b.y + b.height
+  && a.y + a.height > b.y;
+
+const hasTextInQrPlacement = async (pdfBytes, placement) => {
+  let pdfDoc;
+
+  try {
+    const pdfjs = await loadPdfJs();
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(pdfBytes),
+      disableFontFace: true,
+      disableWorker: true,
+      isEvalSupported: false,
+      stopAtErrors: false,
+    });
+
+    pdfDoc = await loadingTask.promise;
+    const page = await pdfDoc.getPage(1);
+    const viewport = page.getViewport({ scale: 1 });
+    const textContent = await page.getTextContent({ disableNormalization: false });
+    const padding = 8;
+    const target = {
+      x: placement.x - padding,
+      y: viewport.height - placement.y - placement.height - padding,
+      width: placement.width + padding * 2,
+      height: placement.height + padding * 2,
+    };
+
+    for (const item of textContent.items || []) {
+      if (!item.str || !String(item.str).trim() || !Array.isArray(item.transform)) continue;
+
+      const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+      const height = Math.max(Math.abs(item.height || item.transform[3] || 0), 6);
+      const width = Math.max(Math.abs(item.width || 0), String(item.str).length * height * 0.35);
+      const textBox = {
+        x,
+        y: y - height,
+        width,
+        height,
+      };
+
+      if (rectanglesOverlap(target, textBox)) {
+        page.cleanup();
+        return true;
+      }
+    }
+
+    page.cleanup();
+    return false;
+  } catch (err) {
+    console.warn('Unable to inspect first-page QR placement for text; skipping QR embedding:', err.message);
+    return true;
+  } finally {
+    if (pdfDoc) {
+      const destroyResult = pdfDoc.destroy();
+      if (destroyResult && typeof destroyResult.catch === 'function') {
+        destroyResult.catch(() => {});
+      }
+    }
+  }
+};
 
 const drawBrandedQr = async (pdfDoc, page, filename, options = {}) => {
   const qrSize = Number(options.size || 86);
@@ -115,18 +190,7 @@ const drawBrandedQr = async (pdfDoc, page, filename, options = {}) => {
 
   const logoBytes = await fs.promises.readFile(logoPath);
   const logoImage = await pdfDoc.embedPng(logoBytes);
-  const badgeSize = qrSize * 0.28;
-  const badgeX = x + (qrSize - badgeSize) / 2;
-  const badgeY = y + (qrSize - badgeSize) / 2;
-  const logoSize = badgeSize * 0.78;
-
-  page.drawRectangle({
-    x: badgeX,
-    y: badgeY,
-    width: badgeSize,
-    height: badgeSize,
-    color: rgb(1, 1, 1),
-  });
+  const logoSize = qrSize * 0.3;
 
   page.drawImage(logoImage, {
     x: x + (qrSize - logoSize) / 2,
@@ -149,11 +213,23 @@ const appendQrToStoredPdf = async (filename, options = {}) => {
     const [firstPage] = pdfDoc.getPages();
     if (!firstPage) return;
     const { width } = firstPage.getSize();
-    const qrSize = 72;
+    const qrSize = 82;
+    const qrPlacement = {
+      width: qrSize,
+      height: qrSize,
+      x: width - qrSize - 18,
+      y: 18,
+    };
+
+    if (await hasTextInQrPlacement(pdfBytes, qrPlacement)) {
+      console.warn(`Skipped QR embedding for ${filename}: text exists in the first-page bottom-right QR area.`);
+      return;
+    }
+
     await drawBrandedQr(pdfDoc, firstPage, filename, {
       size: qrSize,
-      x: width - qrSize - 16,
-      y: 16,
+      x: qrPlacement.x,
+      y: qrPlacement.y,
     });
   } else {
     const qrPage = pdfDoc.addPage([360, 240]);
