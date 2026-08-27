@@ -2,6 +2,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const crypto = require('crypto');
 const connection = require('../config');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const QRCode = require('qrcode');
@@ -47,6 +48,104 @@ const getPagination = (query = {}, defaults = {}) => {
 
 const publicMediaLink = (filename) =>
   filename ? `${api_ip}/media/${encodeURIComponent(filename)}` : '';
+
+const cleanExternalLink = (value) => {
+  const link = String(value || '').trim();
+  if (!link) return '';
+
+  try {
+    const url = new URL(link);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+};
+
+const getQrDestinationLink = (filename, externalLink) =>
+  cleanExternalLink(externalLink) || publicMediaLink(filename);
+
+const getNotificationSigningSecret = () =>
+  process.env.NOTIFICATION_SIGNING_SECRET
+  || process.env.SESSION_SECRET
+  || process.env.GOOGLE_CLIENT_SECRET
+  || 'jntugv-development-signing-secret';
+
+const createNotificationSignature = ({ filename, destinationLink, pdfBytes }) => {
+  const fileHash = crypto.createHash('sha256').update(pdfBytes).digest('hex');
+  const signature = crypto
+    .createHmac('sha256', getNotificationSigningSecret())
+    .update(`${filename}|${destinationLink}|${fileHash}`)
+    .digest('hex');
+
+  return {
+    fileHash,
+    signature,
+    token: `JNTUGV-${signature.slice(0, 16).toUpperCase()}`,
+  };
+};
+
+const writeNotificationSignatureSidecar = async ({ filePath, filename, token, destinationLink, signedPdfBytes }) => {
+  const finalFileHash = crypto.createHash('sha256').update(signedPdfBytes).digest('hex');
+  const finalSignature = crypto
+    .createHmac('sha256', getNotificationSigningSecret())
+    .update(`${token}|${filename}|${destinationLink}|${finalFileHash}`)
+    .digest('hex');
+
+  await fs.promises.writeFile(
+    `${filePath}.signature.json`,
+    JSON.stringify({
+      issuer: 'JNTU-GV Controllers API',
+      token,
+      filename,
+      destination_link: destinationLink,
+      pdf_sha256: finalFileHash,
+      signature: finalSignature,
+      algorithm: 'HMAC-SHA256',
+      signed_at: new Date().toISOString(),
+    }, null, 2),
+  );
+};
+
+const removeNotificationSignatureSidecar = (filePath) => {
+  if (!filePath) return;
+  fs.promises.unlink(`${filePath}.signature.json`).catch((error) => {
+    if (error.code !== 'ENOENT') {
+      console.error('Error deleting notification signature file:', error);
+    }
+  });
+};
+
+const persistSignedNotificationPdf = async ({
+  pdfDoc,
+  filePath,
+  filename,
+  token,
+  destinationLink,
+  fallbackPdfBytes,
+}) => {
+  try {
+    const signedPdfBytes = await pdfDoc.save();
+    await fs.promises.writeFile(filePath, signedPdfBytes);
+    await writeNotificationSignatureSidecar({
+      filePath,
+      filename,
+      token,
+      destinationLink,
+      signedPdfBytes,
+    });
+    return true;
+  } catch (error) {
+    console.warn(`Unable to write QR/signature into ${filename}; keeping original PDF:`, error.message);
+    await writeNotificationSignatureSidecar({
+      filePath,
+      filename,
+      token,
+      destinationLink,
+      signedPdfBytes: fallbackPdfBytes,
+    });
+    return false;
+  }
+};
 
 const toBooleanString = (value) =>
   ['true', 'yes', '1', true, 1].includes(value) ? 'true' : 'false';
@@ -99,13 +198,19 @@ const loadPdfJs = async () => {
   return pdfjsPromise;
 };
 
+const getPdfJsStandardFontDataUrl = () => {
+  const pdfjsPackagePath = require.resolve('pdfjs-dist/package.json');
+  const standardFontsPath = path.join(path.dirname(pdfjsPackagePath), 'standard_fonts');
+  return `${standardFontsPath}${path.sep}`;
+};
+
 const rectanglesOverlap = (a, b) =>
   a.x < b.x + b.width
   && a.x + a.width > b.x
   && a.y < b.y + b.height
   && a.y + a.height > b.y;
 
-const hasTextInQrPlacement = async (pdfBytes, placement) => {
+const hasTextInQrPlacement = async (pdfBytes, placement, pageNumber = 1) => {
   let pdfDoc;
 
   try {
@@ -115,11 +220,12 @@ const hasTextInQrPlacement = async (pdfBytes, placement) => {
       disableFontFace: true,
       disableWorker: true,
       isEvalSupported: false,
+      standardFontDataUrl: getPdfJsStandardFontDataUrl(),
       stopAtErrors: false,
     });
 
     pdfDoc = await loadingTask.promise;
-    const page = await pdfDoc.getPage(1);
+    const page = await pdfDoc.getPage(pageNumber);
     const viewport = page.getViewport({ scale: 1 });
     const textContent = await page.getTextContent({ disableNormalization: false });
     const padding = 8;
@@ -152,7 +258,7 @@ const hasTextInQrPlacement = async (pdfBytes, placement) => {
     page.cleanup();
     return false;
   } catch (err) {
-    console.warn('Unable to inspect first-page QR placement for text; skipping QR embedding:', err.message);
+    console.warn(`Unable to inspect page ${pageNumber} QR placement for text; trying another safe placement:`, err.message);
     return true;
   } finally {
     if (pdfDoc) {
@@ -164,11 +270,24 @@ const hasTextInQrPlacement = async (pdfBytes, placement) => {
   }
 };
 
-const drawBrandedQr = async (pdfDoc, page, filename, options = {}) => {
+const drawSignatureToken = async (pdfDoc, page, token, options = {}) => {
+  if (!token) return;
+
+  const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  page.drawText(`Verified Token: ${token}`, {
+    x: Number(options.x || 24),
+    y: Number(options.y || 8),
+    size: Number(options.size || 5.5),
+    font: bodyFont,
+    color: rgb(0.28, 0.31, 0.36),
+  });
+};
+
+const drawBrandedQr = async (pdfDoc, page, destinationLink, options = {}) => {
   const qrSize = Number(options.size || 86);
   const x = Number(options.x || 24);
   const y = Number(options.y || 24);
-  const qrPng = await QRCode.toBuffer(publicMediaLink(filename), {
+  const qrPng = await QRCode.toBuffer(destinationLink, {
     errorCorrectionLevel: 'H',
     margin: 1,
     width: 360,
@@ -200,64 +319,123 @@ const drawBrandedQr = async (pdfDoc, page, filename, options = {}) => {
   });
 };
 
+const drawVerificationPage = async (pdfDoc, destinationLink, token) => {
+  const qrPage = pdfDoc.addPage([360, 240]);
+  const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  qrPage.drawText('JNTU-GV Notification Verification', {
+    x: 34,
+    y: 190,
+    size: 13,
+    font: titleFont,
+    color: rgb(0.13, 0.02, 0.33),
+  });
+  qrPage.drawText('Scan the QR code to open the linked notification resource.', {
+    x: 34,
+    y: 170,
+    size: 9,
+    font: bodyFont,
+    color: rgb(0.2, 0.24, 0.32),
+  });
+  await drawBrandedQr(pdfDoc, qrPage, destinationLink, {
+    size: 104,
+    x: 128,
+    y: 46,
+  });
+  await drawSignatureToken(pdfDoc, qrPage, token, {
+    x: 34,
+    y: 28,
+    size: 7,
+  });
+};
+
 const appendQrToStoredPdf = async (filename, options = {}) => {
   if (!filename || !filename.toLowerCase().endsWith('.pdf')) return;
   if (!shouldEmbedQr(options.embedQrCode)) return;
 
   const filePath = `./storage/notifications/${filename}`;
   const pdfBytes = await fs.promises.readFile(filePath);
-  const pdfDoc = await PDFDocument.load(pdfBytes);
   const placement = normalizeQrPlacement(options.placement);
+  const destinationLink = getQrDestinationLink(filename, options.externalLink);
+  const signature = createNotificationSignature({ filename, destinationLink, pdfBytes });
+  let pdfDoc;
 
-  if (placement === 'first_page_corner') {
-    const [firstPage] = pdfDoc.getPages();
-    if (!firstPage) return;
-    const { width } = firstPage.getSize();
-    const qrSize = 82;
-    const qrPlacement = {
-      width: qrSize,
-      height: qrSize,
-      x: width - qrSize - 18,
-      y: 18,
-    };
-
-    if (await hasTextInQrPlacement(pdfBytes, qrPlacement)) {
-      console.warn(`Skipped QR embedding for ${filename}: text exists in the first-page bottom-right QR area.`);
-      return;
-    }
-
-    await drawBrandedQr(pdfDoc, firstPage, filename, {
-      size: qrSize,
-      x: qrPlacement.x,
-      y: qrPlacement.y,
+  try {
+    pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  } catch (error) {
+    console.warn(`Unable to open ${filename} for QR/signature; keeping original PDF:`, error.message);
+    await writeNotificationSignatureSidecar({
+      filePath,
+      filename,
+      token: signature.token,
+      destinationLink,
+      signedPdfBytes: pdfBytes,
     });
-  } else {
-    const qrPage = pdfDoc.addPage([360, 240]);
-    const titleFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-    qrPage.drawText('JNTU-GV Notification Verification', {
-      x: 34,
-      y: 190,
-      size: 13,
-      font: titleFont,
-      color: rgb(0.13, 0.02, 0.33),
-    });
-    qrPage.drawText('Scan the QR code to open the official uploaded PDF link.', {
-      x: 34,
-      y: 170,
-      size: 9,
-      font: bodyFont,
-      color: rgb(0.2, 0.24, 0.32),
-    });
-    await drawBrandedQr(pdfDoc, qrPage, filename, {
-      size: 104,
-      x: 128,
-      y: 46,
-    });
+    return;
   }
 
-  await fs.promises.writeFile(filePath, await pdfDoc.save());
+  pdfDoc.setCreator('JNTU-GV Notification Console');
+  pdfDoc.setProducer('JNTU-GV Controllers API');
+  pdfDoc.setSubject(`JNTU-GV tamper-evident token: ${signature.token}`);
+  pdfDoc.setKeywords([
+    'JNTU-GV',
+    'notification',
+    'tamper-evident',
+    signature.token,
+    `sha256:${signature.fileHash}`,
+  ]);
+
+  if (placement === 'first_page_corner') {
+    const pages = pdfDoc.getPages();
+    const qrSize = 82;
+    let qrPlaced = false;
+    const pagesToCheck = pages.slice(0, 2);
+
+    for (let index = 0; index < pagesToCheck.length; index += 1) {
+      const page = pagesToCheck[index];
+      const { width } = page.getSize();
+      const qrPlacement = {
+        width: qrSize,
+        height: qrSize,
+        x: width - qrSize - 18,
+        y: 18,
+      };
+
+      if (await hasTextInQrPlacement(pdfBytes, qrPlacement, index + 1)) {
+        console.info(`QR placement skipped for ${filename}: page ${index + 1} bottom-right area already contains text.`);
+        continue;
+      }
+
+      await drawBrandedQr(pdfDoc, page, destinationLink, {
+        size: qrSize,
+        x: qrPlacement.x,
+        y: qrPlacement.y,
+      });
+      await drawSignatureToken(pdfDoc, page, signature.token, {
+        x: Math.max(18, qrPlacement.x - 104),
+        y: qrPlacement.y,
+      });
+      console.info(`QR embedded for ${filename} on page ${index + 1}.`);
+      qrPlaced = true;
+      break;
+    }
+
+    if (!qrPlaced) {
+      console.info(`QR embedding skipped for ${filename}: no clear bottom-right area found on page 1 or page 2.`);
+    }
+  } else {
+    await drawVerificationPage(pdfDoc, destinationLink, signature.token);
+  }
+
+  await persistSignedNotificationPdf({
+    pdfDoc,
+    filePath,
+    filename,
+    token: signature.token,
+    destinationLink,
+    fallbackPdfBytes: pdfBytes,
+  });
 };
 
 const mapNotificationRows = (results) => results.map(eve => {
@@ -311,6 +489,7 @@ exports.insert_event = async (req, res) => {
     await appendQrToStoredPdf(file, {
       embedQrCode: update.embed_qr_code,
       placement: update.qr_placement,
+      externalLink: update.external_lnk,
     });
   } catch (err) {
     if (file) fs.promises.unlink(`./storage/notifications/${file}`).catch(() => {});
@@ -366,6 +545,7 @@ exports.delete_event = (req, res) => {
                 console.error('Error removing file:', err);
               }
             });
+            removeNotificationSignatureSidecar(filepath);
           }
         });
       }
@@ -377,25 +557,17 @@ exports.delete_event = (req, res) => {
 
 exports.update_event = (req, res) => {
   const updateId = req.params.id;
-  const { date, title, external_text, external_link, submitted_by } = req.body;
   const department = normalizeDepartmentCode(req.body.department);
   const updateType = normalizeUpdateType(req.body.type_of_update || req.body.update_type, department);
   const isStatic = toBooleanString(req.body.is_static);
-  const expiryDate = cleanOptionalDate(req.body.expiry_date);
-  const revisedDate = cleanOptionalDate(req.body.revised_date);
   const updateStatus = 'update';
 
-  if (!updateId || !date || !title) {
-      res.status(400).json({ error: 'Missing required fields' });
+  if (!updateId) {
+      res.status(400).json({ error: 'Notification id is required' });
       return;
   }
 
-  if (isStatic === 'true' && !expiryDate) {
-      res.status(400).json({ error: 'Expiry date is required for static notifications' });
-      return;
-  }
-
-  const selQuery = `SELECT file_path FROM notification_updates WHERE id = ?`;
+  const selQuery = `SELECT file_path, date, title, external_text, external_link, expiry_date, revised_date, submitted_by FROM notification_updates WHERE id = ?`;
 
   connection.query(selQuery, [updateId], (err, results) => {
       if (err) {
@@ -408,9 +580,30 @@ exports.update_event = (req, res) => {
           return;
       }
 
-      let oldFilePath = results[0].file_path;
+      const existing = results[0];
+      const nextDate = String(req.body.date || existing.date || '').trim();
+      const nextTitle = String(req.body.title || existing.title || '').trim();
+      const nextExternalText = req.body.external_text !== undefined ? req.body.external_text : existing.external_text;
+      const nextExternalLink = req.body.external_link !== undefined ? req.body.external_link : existing.external_link;
+      const nextSubmittedBy = req.body.submitted_by || existing.submitted_by || 'admin';
+      const expiryDate = isStatic === 'true'
+        ? cleanOptionalDate(req.body.expiry_date) || cleanOptionalDate(existing.expiry_date)
+        : null;
+      const revisedDate = cleanOptionalDate(req.body.revised_date) || null;
+
+      if (!nextDate || !nextTitle) {
+          res.status(400).json({ error: 'Notification date and title are required' });
+          return;
+      }
+
+      if (isStatic === 'true' && !expiryDate) {
+          res.status(400).json({ error: 'Expiry date is required for static notifications' });
+          return;
+      }
+
+      let oldFilePath = existing.file_path;
       let sql = `UPDATE notification_updates SET date = ?, title = ?, external_text = ?, external_link = ?, main_page = 'yes', scrolling = 'no', department = ?, update_type = ?, is_static = ?, expiry_date = ?, revised_date = ?, update_status = ?, submitted_by = ?, admin_approval = 'accepted'`;
-      let values = [date, title, external_text, external_link, department, updateType, isStatic, expiryDate, revisedDate, updateStatus, submitted_by];
+      let values = [nextDate, nextTitle, nextExternalText, nextExternalLink, department, updateType, isStatic, expiryDate, revisedDate, updateStatus, nextSubmittedBy];
 
       const continueUpdate = () => {
         if (req.file) {
@@ -432,6 +625,7 @@ exports.update_event = (req, res) => {
                   console.error('Error deleting old notification file:', unlinkErr);
                 }
               });
+              removeNotificationSignatureSidecar(oldFileFullPath);
           }
 
           res.json({ message: 'Event updated successfully' });
@@ -442,6 +636,7 @@ exports.update_event = (req, res) => {
         appendQrToStoredPdf(req.file.filename, {
           embedQrCode: req.body.embed_qr_code,
           placement: req.body.qr_placement,
+          externalLink: req.body.external_link,
         })
           .then(continueUpdate)
           .catch((err) => {

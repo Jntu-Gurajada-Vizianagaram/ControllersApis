@@ -36,7 +36,7 @@ const affiliatedCollegeSeed = [
   ['T5', '', 'Avanthi Institute of Pharmaceutical Sciences, Cherukupalli', 'Vizianagaram', 'Autonomous', 'http://avanthipharma.ac.in/', 'Pharmacy', 'Autonomous', false, '2026-27', 'Cherukupalli, Bhogapuram(M) Vizianagaram Dist - 531162', '2025'],
   ['AC', '', 'Vignan Institute of Pharmaceutical Technology, Duvvada', 'Visakhapatnam', 'Autonomous', 'http://viptvizag.in/', 'Pharmacy', 'Autonomous', false, '2026-27', 'BesideVSEZ, Kapujag-garajupeta, Duvvada, Visakhapatnam-530049', '2024'],
   ['GVCEV', 'https://jntugvcev.edu.in/wp-content/uploads/2022/07/logo-min.jpeg', 'JNTU-GV College of Engineering, Vizianagaram', 'Vizianagaram', 'University Constituent', 'https://jntugvcev.edu.in/', 'Engineering', 'University', true, '2026-27', 'Vizianagaram', ''],
-  ['GVCPSV', 'https://jntugvcps.edu.in/_next/image?url=%2Flogo512.png&w=256&q=75', 'JNTU-GV College of Pharmaceutical Sciences, Vizianagaram', 'Vizianagaram', 'University Constituent', 'https://jntugvcpsv.jntugv.edu.in/', 'Pharmacy', 'University', true, '2026-27', 'Vizianagaram', ''],
+  ['GVCPSV', 'https://jntugvcps.edu.in/_next/image?url=%2Flogo512.png&w=256&q=75', 'JNTU-GV College of Pharmaceutical Sciences, Vizianagaram', 'Vizianagaram', 'University Constituent', 'https://jntugvcps.edu.in/', 'Pharmacy', 'University', true, '2026-27', 'Vizianagaram', ''],
   ['GVTCEK', 'https://teck.jntugv.edu.in/images/GV-LOGO.jpeg', 'JNTU-GV Tribal College of Engineering, Kurupam', 'Kurupam', 'University Constituent', 'https://teck.jntugv.edu.in/', 'Engineering', 'University', true, '2026-27', 'Kurupam', ''],
 ];
 
