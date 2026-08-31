@@ -8,7 +8,7 @@ const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const QRCode = require('qrcode');
 require('dotenv').config();
 const api_ip = process.env.domainIp;
-const { safeOriginalFilename, notificationFileFilter } = require('../../utils/uploads');
+const { safeOriginalFilename } = require('../../utils/uploads');
 const {
   departments,
   getDepartment,
@@ -19,20 +19,74 @@ const {
 } = require('../../utils/updateDepartments');
 fs.mkdirSync('./storage/notifications/', { recursive: true });
 const notificationsDir = './storage/notifications/';
+
+const notificationFileExtensions = new Map([
+  ['application/pdf', '.pdf'],
+  ['application/zip', '.zip'],
+  ['application/x-zip-compressed', '.zip'],
+  ['multipart/x-zip', '.zip'],
+]);
+
+const getNotificationExtension = (file = {}) => {
+  const originalExtension = path.extname(file.originalname || '').toLowerCase();
+  if (originalExtension === '.pdf' || originalExtension === '.zip') {
+    return originalExtension;
+  }
+  return notificationFileExtensions.get(file.mimetype) || '';
+};
+
+const sanitizeNotificationFilename = (file, directory) => {
+  const extension = getNotificationExtension(file);
+  if (!extension) throw new Error('Only PDF and ZIP files are allowed for notifications');
+
+  if (extension === '.pdf') {
+    return safeOriginalFilename(file, directory);
+  }
+
+  const parsed = path.parse(file.originalname || `notification-${Date.now()}${extension}`);
+  const baseName = parsed.name
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+
+  const safeBaseName = baseName || `notification-${Date.now()}`;
+  let candidate = `${safeBaseName}${extension}`;
+  let copy = 2;
+
+  while (directory && fs.existsSync(path.join(directory, candidate))) {
+    candidate = `${safeBaseName}-${copy}${extension}`;
+    copy += 1;
+  }
+
+  return candidate;
+};
+
+const notificationUploadFileFilter = (req, file, callback) => {
+  const extension = getNotificationExtension(file);
+  const allowedMime =
+    file.mimetype === 'application/pdf' ||
+    notificationFileExtensions.has(file.mimetype) ||
+    (file.mimetype === 'application/octet-stream' && extension === '.zip');
+
+  const allowed = Boolean(extension) && allowedMime;
+  callback(allowed ? null : new Error('Only PDF and ZIP files are allowed for notifications'), allowed);
+};
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     return cb(null, notificationsDir);
   },
   filename: (req, file, cb) => {
-    return cb(null, safeOriginalFilename(file, notificationsDir));
+    return cb(null, sanitizeNotificationFilename(file, notificationsDir));
   }
 });
 
 
 exports.Upload = multer({
   storage,
-  limits: { files: 1, fileSize: 20 * 1024 * 1024 },
-  fileFilter: notificationFileFilter,
+  limits: { files: 1, fileSize: 75 * 1024 * 1024 },
+  fileFilter: notificationUploadFileFilter,
 }).single('file');
 
 const getPagination = (query = {}, defaults = {}) => {
