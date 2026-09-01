@@ -137,6 +137,59 @@ exports.all = async (req, res) => {
   }
 };
 
+const publicProfileRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  username: row.username,
+  email: row.username,
+  profile_type: row.profile_type,
+  title: row.designation || row.profile_type,
+  designation: row.designation,
+  department: row.department,
+  unit: row.unit,
+  phone: row.phone,
+  about: row.about,
+  role: row.role,
+  public_url: row.public_url,
+  slug: String(row.public_url || row.designation || row.name || row.username || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, ''),
+});
+
+exports.publicAll = async (req, res) => {
+  try {
+    const [rows] = await connection.promise().execute(
+      `SELECT id, name, username, profile_type, designation, department, unit, phone, about, role, public_url
+       FROM admins_profile
+       WHERE visibility = 'public' AND status = 'active'
+       ORDER BY profile_type ASC, updated_at DESC, id DESC`,
+    );
+    res.json(rows.map(publicProfileRow));
+  } catch (error) {
+    console.error('Unable to load public profiles:', error.message);
+    res.status(500).json({ error: 'Unable to load public profiles' });
+  }
+};
+
+exports.publicOne = async (req, res) => {
+  const slug = String(req.params.slug || '').trim().toLowerCase();
+  try {
+    const [rows] = await connection.promise().execute(
+      `SELECT id, name, username, profile_type, designation, department, unit, phone, about, role, public_url
+       FROM admins_profile
+       WHERE visibility = 'public' AND status = 'active'`,
+    );
+    const profiles = rows.map(publicProfileRow);
+    const profile = profiles.find((item) => item.slug === slug || String(item.public_url || '').toLowerCase() === slug);
+    if (!profile) return res.status(404).json({ error: 'Profile not found' });
+    res.json(profile);
+  } catch (error) {
+    console.error('Unable to load public profile:', error.message);
+    res.status(500).json({ error: 'Unable to load public profile' });
+  }
+};
+
 exports.create = async (req, res) => {
   if (!isPrivileged(req.session.user)) return res.status(403).json({ error: 'Forbidden' });
   try {

@@ -142,6 +142,9 @@ app.use("/events", express.static("./storage/dmc/events"));
 app.use("/gallery/image", express.static("./storage/gallery"));
 app.use("/press-notes", express.static("./storage/press_notes", { dotfiles: 'deny', index: false }));
 app.use('/director-images', express.static('./storage/directors', { dotfiles: 'deny', index: false }));
+app.use('/executive-council-images', express.static('./storage/executive-council', { dotfiles: 'deny', index: false }));
+app.use('/leadership-profile-images', express.static('./storage/leadership-profiles', { dotfiles: 'deny', index: false }));
+app.use('/people-images', express.static('./storage/people', { dotfiles: 'deny', index: false }));
 const resultsDirectory = path.resolve(
   process.env.RESULTS_DIR || path.join(__dirname, '..', 'Controllers', 'public', 'Storage', 'Results')
 );

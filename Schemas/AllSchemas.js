@@ -11,6 +11,10 @@ const admin_profile_schema = require('./AdminProfileSchema')
 const site_nav_schema = require('./SiteNavSchema')
 const youtube_videos_schema = require('./YoutubeVideosSchema')
 const press_notes_schema = require('./PressNotesSchema')
+const executive_council_schema = require('./ExecutiveCouncilSchema')
+const website_leadership_profile_schema = require('./WebsiteLeadershipProfileSchema')
+const website_people_schema = require('./WebsitePeopleSchema')
+const website_position_assignment_schema = require('./WebsitePositionAssignmentSchema')
 
 exports.allSchemas = ()=>{
     
@@ -27,5 +31,9 @@ exports.allSchemas = ()=>{
     site_nav_schema.site_nav_table()
     youtube_videos_schema.youtube_videos_table()
     press_notes_schema.press_notes_table()
+    executive_council_schema.executive_council_table()
+    website_leadership_profile_schema.website_leadership_profiles_table()
+    website_people_schema.website_people_table()
+    website_position_assignment_schema.website_position_assignments_table()
 
 }
