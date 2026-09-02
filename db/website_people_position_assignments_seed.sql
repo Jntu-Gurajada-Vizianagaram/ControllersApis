@@ -66,60 +66,155 @@ WHERE email IN (
   'osd@jntugv.edu.in',
   'daa@jntugv.edu.in',
   'dap@jntugv.edu.in',
+  'da@jntugv.edu.in',
   'de@jntugv.edu.in',
   'dr@jntugv.edu.in',
-  'dirp@jntugv.edu.in'
+  'dirp@jntugv.edu.in',
+  'diqac@jntugv.edu.in',
+  'dar@jntugv.edu.in'
 )
 OR name IN (
+  'Prof. V. V. Subba Rao',
+  'Dr. K. Chandra Bhushana Rao',
+  'Dr. Shaik Kalesha Vali',
   'Prof. Dr. G. Jaya Suma',
+  'Prof. G. Swami Naidu',
   'Dr. G.J. Naga Raju',
-  'Dr. K. Sri Kumar'
+  'Dr. K. Sri Kumar',
+  'Directorate of Evaluation'
 );
 
 INSERT INTO website_people
   (name, email, department, academic_title, qualifications, image_url, about, sort_order, status)
 VALUES
-  ('Prof. V. V. Subba Rao', 'vc@jntugv.edu.in', 'Mechanical Engineering', 'Professor of Mechanical Engineering', 'Ph.D., IIT Kharagpur | Post-Doctoral Fellowship, Hoseo University, South Korea', CONCAT(@api_base, '/leadership-profile-images/vc.png'), 'Prof. V. V. Subba Rao is the Vice-Chancellor of Jawaharlal Nehru Technological University - Gurajada, Vizianagaram.', 10, 'active'),
-  ('Dr. K. Chandra Bhushana Rao', 'registrar@jntugv.edu.in', 'Electronics and Communication Engineering', 'Professor, Department of Electronics and Communication Engineering', 'B.E., M.E., Ph.D. in Electronics and Communication Engineering', CONCAT(@api_base, '/leadership-profile-images/kcb_rao.jpeg'), 'Dr. Kota Chandra Bhushana Rao is currently serving as Registrar (i/c) of JNTU-GV, Vizianagaram. He has over 29 years of teaching, research, and administrative experience in engineering education.', 40, 'active'),
-  ('Dr. Shaik Kalesha Vali', 'osd@jntugv.edu.in', 'BS&HSS', 'Professor of Mathematics', 'M.Sc., M.Phil., Ph.D. in Mathematics', CONCAT(@api_base, '/leadership-profile-images/osd.jpeg'), 'Dr. S. Kalesha Vali is serving as Officer on Special Duty (OSD) to the Hon''ble Vice-Chancellor, JNTU-GV.', 50, 'active'),
-  ('Prof. Dr. G. Jaya Suma', 'dap@jntugv.edu.in', 'Information Technology', 'Professor', NULL, CONCAT(@api_base, '/director-images/jayasuma.jpeg'), NULL, 60, 'active'),
-  ('Prof. G. Swami Naidu', 'dr@jntugv.edu.in', 'Metallurgical Engineering', 'Professor', NULL, CONCAT(@api_base, '/director-images/dr_and_d.jpg'), NULL, 70, 'active'),
-  ('Dr. G.J. Naga Raju', 'daa@jntugv.edu.in', 'Physics', 'Professor', NULL, CONCAT(@api_base, '/director-images/gjn.jpg'), NULL, 80, 'active'),
-  ('Directorate of Evaluation', 'de@jntugv.edu.in', NULL, 'Director of Evaluation', NULL, NULL, NULL, 90, 'active');
+  (
+    'Prof. V. V. Subba Rao',
+    'vc@jntugv.edu.in',
+    'Mechanical Engineering',
+    'Professor of Mechanical Engineering',
+    'Ph.D., IIT Kharagpur | Post-Doctoral Fellowship, Hoseo University, South Korea',
+    CONCAT(@api_base, '/leadership-profile-images/vc.png'),
+    'Prof. V. V. Subba Rao is the Hon''ble Vice-Chancellor of Jawaharlal Nehru Technological University - Gurajada, Vizianagaram. His profile details are maintained by the authorized JNTU-GV website administration team.',
+    10,
+    'active'
+  ),
+  (
+    'Dr. K. Chandra Bhushana Rao',
+    'registrar@jntugv.edu.in',
+    'Electronics and Communication Engineering',
+    'Professor, Department of Electronics and Communication Engineering',
+    'B.E., M.E., Ph.D. in Electronics and Communication Engineering',
+    CONCAT(@api_base, '/leadership-profile-images/kcb_rao.jpeg'),
+    'Dr. Kota Chandra Bhushana Rao is serving as Registrar (i/c) of JNTU-GV, Vizianagaram. He has over 29 years of teaching, research, and administrative experience in engineering education and has served in academic and administrative roles including Professor, Head, Dean, Director IQAC, and Principal.',
+    40,
+    'active'
+  ),
+  (
+    'Dr. Shaik Kalesha Vali',
+    'osd@jntugv.edu.in',
+    'BS&HSS',
+    'Professor of Mathematics',
+    'M.Sc., M.Phil., Ph.D. in Mathematics',
+    CONCAT(@api_base, '/leadership-profile-images/osd.jpeg'),
+    'Dr. Shaik Kalesha Vali is Professor of Mathematics and serves JNTU-GV in multiple administrative responsibilities including Officer on Special Duty (OSD), Director of Admissions, and Director (i/c) of Internal Quality Assurance Cell.',
+    50,
+    'active'
+  ),
+  (
+    'Prof. Dr. G. Jaya Suma',
+    NULL,
+    'Information Technology',
+    'Professor',
+    'B.Tech., M.Tech., Ph.D. in Computer Science and Engineering',
+    CONCAT(@api_base, '/director-images/jayasuma.jpeg'),
+    'Prof. Dr. G. Jaya Suma is Professor in the Department of Information Technology and serves as Director of Academic Planning, JNTU-GV, Vizianagaram. She has extensive teaching, research, and administrative experience in engineering education.',
+    60,
+    'active'
+  ),
+  (
+    'Prof. G. Swami Naidu',
+    'dr@jntugv.edu.in',
+    'Metallurgical Engineering',
+    'Professor',
+    NULL,
+    CONCAT(@api_base, '/director-images/dr_and_d.jpg'),
+    'Prof. G. Swami Naidu serves as Director of Research & Development, JNTU-GV, coordinating research, innovation, consultancy, and academic research development activities.',
+    70,
+    'active'
+  ),
+  (
+    'Dr. G.J. Naga Raju',
+    NULL,
+    'Physics',
+    'Professor',
+    'Ph.D. in Nuclear Physics',
+    CONCAT(@api_base, '/director-images/gjn.jpg'),
+    'Dr. G.J. Naga Raju is Professor of Physics and serves as Director of Academic Audit, JNTU-GV, Vizianagaram. He has teaching, research, and institutional administrative experience at university level.',
+    80,
+    'active'
+  ),
+  (
+    'Dr. K. Sri Kumar',
+    NULL,
+    'Electrical and Electronics Engineering',
+    'Professor',
+    NULL,
+    NULL,
+    'Dr. K. Sri Kumar is Professor of Electrical and Electronics Engineering, JNTU-GV College of Engineering Vizianagaram. He serves as Director of Alumni Relations and Director i/c of Industrial Relations & Placements.',
+    90,
+    'active'
+  ),
+  (
+    'Directorate of Evaluation',
+    'de@jntugv.edu.in',
+    NULL,
+    'Director of Evaluation',
+    NULL,
+    NULL,
+    'The Directorate of Evaluation coordinates university examinations, valuation processes, result processing, and examination records for JNTU-GV.',
+    100,
+    'active'
+  );
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
 SELECT id, 'administration', 'vice-chancellor', 'Vice Chancellor', 'Vice-Chancellor Office', 'Hon''ble Vice-Chancellor', qualifications, 'vc@jntugv.edu.in', NULL, 0, 'public', 'active', 10
 FROM website_people WHERE email = 'vc@jntugv.edu.in'
-ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
+ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
 SELECT id, 'administration', 'registrar', 'Registrar', 'Registrar Office', 'Registrar (i/c)', qualifications, 'registrar@jntugv.edu.in', NULL, 0, 'public', 'active', 40
 FROM website_people WHERE email = 'registrar@jntugv.edu.in'
-ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
+ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'administration', 'osd', 'Officer on Special Duty (OSD)', 'Office of the Hon''ble Vice-Chancellor', 'Officer on Special Duty (OSD)', qualifications, 'osd@jntugv.edu.in', NULL, 0, 'public', 'active', 50
+SELECT id, 'administration', 'osd', 'Officer on Special Duty (OSD)', 'Office of the Hon''ble Vice-Chancellor', 'Officer on Special Duty (OSD)', qualifications, 'osd@jntugv.edu.in', NULL, 1, 'public', 'active', 50
 FROM website_people WHERE email = 'osd@jntugv.edu.in'
-ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
+ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), is_incharge = VALUES(is_incharge), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'academic-audit-planning', 'Director of Academic Audit and Planning', 'Directorate of Academic Audit and Planning', 'Director of Academic Audit and Planning', department, 'daap@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 10
-FROM website_people WHERE email = 'daap@jntugv.edu.in'
+SELECT id, 'directorate', 'academic-audit', 'Director of Academic Audit', 'Directorate of Academic Audit', 'Director of Academic Audit', department, 'daa@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 10
+FROM website_people WHERE name = 'Dr. G.J. Naga Raju'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'admissions', 'Director of Admissions', 'Directorate of Admissions', 'Director of Admissions', department, 'da@jntugv.edu.in', 'https://admissions.jntugv.edu.in', 0, 'public', 'active', 20
-FROM website_people WHERE email = 'da@jntugv.edu.in'
+SELECT id, 'directorate', 'academic-planning', 'Director of Academic Planning', 'Directorate of Academic Planning', 'Director of Academic Planning', department, 'dap@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 20
+FROM website_people WHERE name = 'Prof. Dr. G. Jaya Suma'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'evaluation', 'Director of Evaluation', 'Directorate of Evaluation', 'Director of Evaluation', department, 'de@jntugv.edu.in', NULL, 1, 'public', 'active', 30
+SELECT id, 'directorate', 'admissions', 'Director of Admissions', 'Directorate of Admissions', 'Director of Admissions', department, 'da@jntugv.edu.in', 'https://admissions.jntugv.edu.in', 0, 'public', 'active', 30
+FROM website_people WHERE email = 'osd@jntugv.edu.in'
+ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
+
+INSERT INTO website_position_assignments
+  (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
+SELECT id, 'directorate', 'evaluation', 'Director of Evaluation', 'Directorate of Evaluation', 'Director of Evaluation', department, 'de@jntugv.edu.in', NULL, 1, 'public', 'active', 40
 FROM website_people WHERE email = 'de@jntugv.edu.in'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), is_incharge = VALUES(is_incharge), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
@@ -131,15 +226,15 @@ ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(p
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'placements', 'Director i/c of Industrial Relations & Placements', 'Directorate of Industrial Relations & Placements', 'Director i/c of Industrial Relations & Placements', department, 'dirp@jntugv.edu.in', NULL, 0, 'public', 'active', 60
+SELECT id, 'directorate', 'placements', 'Director i/c of Industrial Relations & Placements', 'Directorate of Industrial Relations & Placements', 'Director i/c of Industrial Relations & Placements', department, 'dirp@jntugv.edu.in', NULL, 1, 'public', 'active', 60
 FROM website_people WHERE name = 'Dr. K. Sri Kumar'
-ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
+ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), is_incharge = VALUES(is_incharge), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'iqac', 'Director (i/c), IQAC', 'Internal Quality Assurance Cell', 'Director (i/c), IQAC', department, 'diqac@jntugv.edu.in', NULL, 0, 'public', 'active', 60
-FROM website_people WHERE email = 'diqac@jntugv.edu.in'
-ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
+SELECT id, 'directorate', 'iqac', 'Director (i/c), IQAC', 'Internal Quality Assurance Cell', 'Director (i/c), IQAC', department, 'diqac@jntugv.edu.in', NULL, 1, 'public', 'active', 70
+FROM website_people WHERE email = 'osd@jntugv.edu.in'
+ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), is_incharge = VALUES(is_incharge), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
