@@ -600,7 +600,29 @@ const listDirectorateProfiles = (req, res) => {
       console.error('Unable to load directorate profiles:', err.message);
       return res.status(500).json({ error: 'Unable to load directorate profiles' });
     }
-    res.json(rows.map(mapAssignedDirectorProfile));
+    if (rows.length) {
+      return res.json(rows.map(mapAssignedDirectorProfile));
+    }
+
+    const baseUrl = process.env.domainIp || `${req.protocol}://${req.get('host')}`;
+    connection.query('SELECT * FROM directors ORDER BY id DESC', (legacyError, legacyRows) => {
+      if (legacyError) {
+        console.error('Unable to load legacy directorate profiles:', legacyError.message);
+        return res.status(500).json({ error: 'Unable to load directorate profiles' });
+      }
+
+      res.json((legacyRows || []).map((row) => ({
+        ...row,
+        name: row.full_name,
+        title: row.academic_position_id,
+        department: row.department_id,
+        directorate_name: row.directorate_id,
+        directorate: row.directorate_id,
+        website_url: row.personal_website || row.profile_url,
+        photo_url: row.photo_path ? `${String(baseUrl).replace(/\/+$/, '')}/director-images/${row.photo_path}` : null,
+        image: row.photo_path ? `${String(baseUrl).replace(/\/+$/, '')}/director-images/${row.photo_path}` : null,
+      })));
+    });
   });
 };
 
