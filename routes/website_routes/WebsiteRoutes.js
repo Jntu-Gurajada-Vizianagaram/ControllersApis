@@ -102,7 +102,8 @@ const approvedNavigation = [
     path: '/directorates',
     sort_order: 50,
     subItems: [
-      { label: 'Academic Audit and Planning', path: '/directorates/academic-audit-planning' },
+      { label: 'Academic Audit', path: '/directorates/academic-audit' },
+      { label: 'Academic Planning', path: '/directorates/academic-planning' },
       { label: 'Admissions', path: '/directorates/admissions' },
       { label: 'Evaluation', path: '/directorates/evaluation' },
       { label: 'Research & Development', path: '/directorates/research' },

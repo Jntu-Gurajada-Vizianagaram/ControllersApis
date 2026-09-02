@@ -43,13 +43,14 @@ const childNavItems = [
   { parent_key: 'nav.academics', label: 'Academic Calendar', path: '/academics/Calendar', reference_key: 'nav.academics.calendar', cms_section: 'notification_console', sort_order: 70 },
   { parent_key: 'nav.academics', label: 'Academic Syllabus', path: '/academics/academic-syllabus', reference_key: 'nav.academics.syllabus', cms_section: 'notification_console', sort_order: 80 },
   { parent_key: 'nav.academics', label: 'Academic Regulations', path: '/academics/academic-regulations', reference_key: 'nav.academics.regulations', cms_section: 'notification_console', sort_order: 90 },
-  { parent_key: 'nav.directorates', label: 'Academic Audit and Planning', path: '/directorates/academic-audit-planning', reference_key: 'nav.directorates.academic-audit-planning', cms_section: 'professionals', sort_order: 10 },
-  { parent_key: 'nav.directorates', label: 'Admissions', path: '/directorates/admissions', reference_key: 'nav.directorates.admissions', cms_section: 'professionals', sort_order: 20 },
-  { parent_key: 'nav.directorates', label: 'Evaluation', path: '/directorates/evaluation', reference_key: 'nav.directorates.evaluation', cms_section: 'professionals', sort_order: 30 },
-  { parent_key: 'nav.directorates', label: 'Research & Development', path: '/directorates/research', reference_key: 'nav.directorates.research', cms_section: 'professionals', sort_order: 40 },
-  { parent_key: 'nav.directorates', label: 'Industrial Relations & Placements', path: '/directorates/placements', reference_key: 'nav.directorates.placements', cms_section: 'professionals', sort_order: 50 },
-  { parent_key: 'nav.directorates', label: 'Internal Quality Assurance Cell', path: '/directorates/iqac', reference_key: 'nav.directorates.iqac', cms_section: 'professionals', sort_order: 60 },
-  { parent_key: 'nav.directorates', label: 'Alumni Relations', path: '/directorates/alumni-relations', reference_key: 'nav.directorates.alumni-relations', cms_section: 'professionals', sort_order: 70 },
+  { parent_key: 'nav.directorates', label: 'Academic Audit', path: '/directorates/academic-audit', reference_key: 'nav.directorates.academic-audit', cms_section: 'professionals', sort_order: 10 },
+  { parent_key: 'nav.directorates', label: 'Academic Planning', path: '/directorates/academic-planning', reference_key: 'nav.directorates.academic-planning', cms_section: 'professionals', sort_order: 20 },
+  { parent_key: 'nav.directorates', label: 'Admissions', path: '/directorates/admissions', reference_key: 'nav.directorates.admissions', cms_section: 'professionals', sort_order: 30 },
+  { parent_key: 'nav.directorates', label: 'Evaluation', path: '/directorates/evaluation', reference_key: 'nav.directorates.evaluation', cms_section: 'professionals', sort_order: 40 },
+  { parent_key: 'nav.directorates', label: 'Research & Development', path: '/directorates/research', reference_key: 'nav.directorates.research', cms_section: 'professionals', sort_order: 50 },
+  { parent_key: 'nav.directorates', label: 'Industrial Relations & Placements', path: '/directorates/placements', reference_key: 'nav.directorates.placements', cms_section: 'professionals', sort_order: 60 },
+  { parent_key: 'nav.directorates', label: 'Internal Quality Assurance Cell', path: '/directorates/iqac', reference_key: 'nav.directorates.iqac', cms_section: 'professionals', sort_order: 70 },
+  { parent_key: 'nav.directorates', label: 'Alumni Relations', path: '/directorates/alumni-relations', reference_key: 'nav.directorates.alumni-relations', cms_section: 'professionals', sort_order: 80 },
   { parent_key: 'nav.examinations', label: 'Controller of Examinations', path: '/examination/controller', reference_key: 'nav.examinations.controller', cms_section: 'static_page', sort_order: 10 },
   { parent_key: 'nav.examinations', label: 'Additional Controller of Examinations-SDC', path: '/examination/controller-sdc', reference_key: 'nav.examinations.controller-sdc', cms_section: 'static_page', sort_order: 20 },
   { parent_key: 'nav.examinations', label: 'Additional Controller of Examinations-1', path: '/examination/controller1', reference_key: 'nav.examinations.controller1', cms_section: 'static_page', sort_order: 30 },
@@ -226,7 +227,13 @@ exports.site_nav_table = () => {
       con.query(
         `DELETE FROM site_nav_items
          WHERE LOWER(label) LIKE '%convocation%'
-            OR path IN ('/convocation', '/1st-convocation')`,
+            OR path IN (
+              '/convocation',
+              '/1st-convocation',
+              '/directorates/academic-audit-planning',
+              '/directorates/sports-administration',
+              '/directorates/faculty-development-cell'
+            )`,
         (cleanupErr) => {
           if (cleanupErr) {
             console.warn('Existing duplicate convocation navigation rows not cleaned:', cleanupErr.message);
