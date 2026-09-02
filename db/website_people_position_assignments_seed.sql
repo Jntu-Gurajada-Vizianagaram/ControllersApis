@@ -196,13 +196,13 @@ ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(p
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'academic-audit', 'Director of Academic Audit', 'Directorate of Academic Audit', 'Director of Academic Audit', department, 'daa@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 10
+SELECT id, 'directorate', 'academic-audit', 'Director of Academic Audit', 'Directorate of Academic Audit', 'Director of Academic Audit', department, 'daa@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 20
 FROM website_people WHERE name = 'Dr. G.J. Naga Raju'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'academic-planning', 'Director of Academic Planning', 'Directorate of Academic Planning', 'Director of Academic Planning', department, 'dap@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 20
+SELECT id, 'directorate', 'academic-planning', 'Director of Academic Planning', 'Directorate of Academic Planning', 'Director of Academic Planning', department, 'dap@jntugv.edu.in', 'https://daap.jntugv.edu.in', 0, 'public', 'active', 10
 FROM website_people WHERE name = 'Prof. Dr. G. Jaya Suma'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
@@ -226,13 +226,13 @@ ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(p
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'placements', 'Director i/c of Industrial Relations & Placements', 'Directorate of Industrial Relations & Placements', 'Director i/c of Industrial Relations & Placements', department, 'dirp@jntugv.edu.in', NULL, 1, 'public', 'active', 60
+SELECT id, 'directorate', 'placements', 'Director i/c of Industrial Relations & Placements', 'Directorate of Industrial Relations & Placements', 'Director i/c of Industrial Relations & Placements', department, 'dirp@jntugv.edu.in', NULL, 1, 'public', 'active', 70
 FROM website_people WHERE name = 'Dr. K. Sri Kumar'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), is_incharge = VALUES(is_incharge), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 
 INSERT INTO website_position_assignments
   (person_id, position_type, position_key, position_label, directorate_name, title_override, subtitle_override, email_override, website_url, is_incharge, visibility, status, sort_order)
-SELECT id, 'directorate', 'iqac', 'Director (i/c), IQAC', 'Internal Quality Assurance Cell', 'Director (i/c), IQAC', department, 'diqac@jntugv.edu.in', NULL, 1, 'public', 'active', 70
+SELECT id, 'directorate', 'iqac', 'Director (i/c), IQAC', 'Internal Quality Assurance Cell', 'Director (i/c), IQAC', department, 'diqac@jntugv.edu.in', NULL, 1, 'public', 'active', 60
 FROM website_people WHERE email = 'osd@jntugv.edu.in'
 ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), position_label = VALUES(position_label), directorate_name = VALUES(directorate_name), title_override = VALUES(title_override), subtitle_override = VALUES(subtitle_override), email_override = VALUES(email_override), website_url = VALUES(website_url), is_incharge = VALUES(is_incharge), visibility = VALUES(visibility), status = VALUES(status), sort_order = VALUES(sort_order);
 

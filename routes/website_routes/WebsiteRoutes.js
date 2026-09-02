@@ -102,13 +102,13 @@ const approvedNavigation = [
     path: '/directorates',
     sort_order: 50,
     subItems: [
-      { label: 'Academic Audit', path: '/directorates/academic-audit' },
       { label: 'Academic Planning', path: '/directorates/academic-planning' },
+      { label: 'Academic Audit', path: '/directorates/academic-audit' },
       { label: 'Admissions', path: '/directorates/admissions' },
       { label: 'Evaluation', path: '/directorates/evaluation' },
       { label: 'Research & Development', path: '/directorates/research' },
-      { label: 'Industrial Relations & Placements', path: '/directorates/placements' },
       { label: 'Internal Quality Assurance Cell', path: '/directorates/iqac' },
+      { label: 'Industrial Relations & Placements', path: '/directorates/placements' },
       { label: 'Alumni Relations', path: '/directorates/alumni-relations' },
     ],
   },
@@ -308,6 +308,92 @@ const normalizePageKey = (value = '') =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+const stripTextMarkup = (value = '') =>
+  String(value || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\*\*/g, '')
+    .replace(/^\s*#+\s*/gm, '')
+    .trim();
+
+const normalizeBioLine = (value = '') =>
+  stripTextMarkup(value)
+    .replace(/^[\s"'`]+|[\s"'`]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isBioHeading = (line = '') => {
+  const clean = normalizeBioLine(line).replace(/:$/, '');
+  if (!clean) return false;
+  if (/^#{1,6}\s+/.test(line.trim())) return true;
+  if (/^\*\*[^*]+\*\*:?\s*$/.test(line.trim())) return true;
+  if (/^[A-Z][A-Za-z &/().,-]{2,80}:$/.test(line.trim())) return true;
+  return [
+    'profile',
+    'achievements',
+    'recognitions',
+    'administrative contributions',
+    'involvement in accreditations',
+    'guidance for institutions',
+    'other achievements',
+    'teaching and research experience',
+    'research areas',
+    'publications',
+    'memberships',
+  ].includes(clean.toLowerCase());
+};
+
+const parseBioSections = (about = '') => {
+  const rawText = String(about || '').trim();
+  if (!rawText) return [];
+
+  const sections = [];
+  let current = {
+    heading: 'Profile',
+    items: [],
+  };
+
+  const pushCurrent = () => {
+    if (current.items.length) {
+      sections.push(current);
+    }
+  };
+
+  rawText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const cleanedLine = normalizeBioLine(line);
+      if (!cleanedLine || /^[-_]{3,}$/.test(cleanedLine)) return;
+
+      if (isBioHeading(line)) {
+        pushCurrent();
+        current = {
+          heading: cleanedLine.replace(/:$/, ''),
+          items: [],
+        };
+        return;
+      }
+
+      const bulletMatch = cleanedLine.match(/^[•▪❖*–—-]\s*(.+)$/);
+      const numberedMatch = cleanedLine.match(/^\d+[.)]\s*(.+)$/);
+
+      current.items.push({
+        type: bulletMatch || numberedMatch ? 'bullet' : 'paragraph',
+        text: (bulletMatch?.[1] || numberedMatch?.[1] || cleanedLine).trim(),
+      });
+    });
+
+  pushCurrent();
+  return sections;
+};
+
+const bioPayload = (about = '') => ({
+  about,
+  bio_sections: parseBioSections(about),
+});
+
 const mapLeadershipProfileRow = (row) => ({
   id: row.id,
   page_key: row.page_key,
@@ -325,6 +411,7 @@ const mapLeadershipProfileRow = (row) => ({
   image: row.image_url,
   photo_url: row.image_url,
   about: row.about,
+  bio_sections: parseBioSections(row.about),
   sort_order: row.sort_order,
   visibility: row.visibility,
   status: row.status,
@@ -387,6 +474,7 @@ const mapPersonRow = (row) => ({
   image: row.image_url,
   image_url: row.image_url,
   about: row.about,
+  bio_sections: parseBioSections(row.about),
   sort_order: row.sort_order,
   status: row.status,
 });
@@ -443,6 +531,7 @@ const mapAssignmentRow = (row) => ({
         image: row.image_url,
         image_url: row.image_url,
         about: row.about,
+        bio_sections: parseBioSections(row.about),
         status: row.person_status,
       }
     : null,
@@ -473,6 +562,7 @@ const mapAssignedProfileRow = (row) => ({
   image: row.image_url,
   photo_url: row.image_url,
   about: row.about,
+  bio_sections: parseBioSections(row.about),
   sort_order: row.sort_order,
   visibility: row.visibility,
   status: row.status,
@@ -590,6 +680,7 @@ const mapAssignedDirectorProfile = (row) => ({
   photo_url: row.image_url,
   image: row.image_url,
   about: row.about,
+  bio_sections: parseBioSections(row.about),
   is_incharge: Boolean(row.is_incharge),
   position_key: row.position_key,
   position_label: row.position_label,
