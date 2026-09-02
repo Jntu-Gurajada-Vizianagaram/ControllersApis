@@ -69,7 +69,7 @@ const notificationUploadFileFilter = (req, file, callback) => {
     notificationFileExtensions.has(file.mimetype) ||
     (file.mimetype === 'application/octet-stream' && extension === '.zip');
 
-  const allowed = Boolean(extension) && allowedMime;
+const allowed = Boolean(extension) && allowedMime;
   callback(allowed ? null : new Error('Only PDF and ZIP files are allowed for notifications'), allowed);
 };
 
