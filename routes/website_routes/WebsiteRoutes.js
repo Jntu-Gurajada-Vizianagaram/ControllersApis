@@ -312,7 +312,9 @@ const stripTextMarkup = (value = '') =>
   String(value || '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    .replace(/\*\*/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
     .replace(/^\s*#+\s*/gm, '')
     .trim();
 
@@ -376,7 +378,7 @@ const parseBioSections = (about = '') => {
         return;
       }
 
-      const bulletMatch = cleanedLine.match(/^[•▪❖*–—-]\s*(.+)$/);
+      const bulletMatch = cleanedLine.match(/^[\s•▪❖✓✔☑✅*–—-]+\s*(.+)$/);
       const numberedMatch = cleanedLine.match(/^\d+[.)]\s*(.+)$/);
 
       current.items.push({
@@ -391,6 +393,8 @@ const parseBioSections = (about = '') => {
 
 const bioPayload = (about = '') => ({
   about,
+  about_clean: stripTextMarkup(about),
+  clean_about: stripTextMarkup(about),
   bio_sections: parseBioSections(about),
 });
 
@@ -410,8 +414,7 @@ const mapLeadershipProfileRow = (row) => ({
   unit: row.unit,
   image: row.image_url,
   photo_url: row.image_url,
-  about: row.about,
-  bio_sections: parseBioSections(row.about),
+  ...bioPayload(row.about),
   sort_order: row.sort_order,
   visibility: row.visibility,
   status: row.status,
@@ -473,8 +476,7 @@ const mapPersonRow = (row) => ({
   qualifications: row.qualifications,
   image: row.image_url,
   image_url: row.image_url,
-  about: row.about,
-  bio_sections: parseBioSections(row.about),
+  ...bioPayload(row.about),
   sort_order: row.sort_order,
   status: row.status,
 });
@@ -530,8 +532,7 @@ const mapAssignmentRow = (row) => ({
         qualifications: row.qualifications,
         image: row.image_url,
         image_url: row.image_url,
-        about: row.about,
-        bio_sections: parseBioSections(row.about),
+        ...bioPayload(row.about),
         status: row.person_status,
       }
     : null,
@@ -561,8 +562,7 @@ const mapAssignedProfileRow = (row) => ({
   website_url: row.website_url,
   image: row.image_url,
   photo_url: row.image_url,
-  about: row.about,
-  bio_sections: parseBioSections(row.about),
+  ...bioPayload(row.about),
   sort_order: row.sort_order,
   visibility: row.visibility,
   status: row.status,
@@ -679,8 +679,7 @@ const mapAssignedDirectorProfile = (row) => ({
   website_url: row.website_url,
   photo_url: row.image_url,
   image: row.image_url,
-  about: row.about,
-  bio_sections: parseBioSections(row.about),
+  ...bioPayload(row.about),
   is_incharge: Boolean(row.is_incharge),
   position_key: row.position_key,
   position_label: row.position_label,
